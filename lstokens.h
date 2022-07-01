@@ -1,4 +1,6 @@
 
+#pragma once
+
 typedef enum {
     YYEMPTY = -2,
     YYEOF = 0,                     /* "end of file"  */
@@ -29,11 +31,12 @@ typedef enum {
     tOPTION = 280                  /* tOPTION  */
 } lstoktype_t;
 
+#define CHARTOKEN(x) ((lstoktype_t) (x))
+
 
 typedef struct lstoken_s {
     double f;
     int w;
     char *str;
 } lstoken_t;
-    
-extern lstoken_t yylval;
+

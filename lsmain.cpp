@@ -21,6 +21,8 @@
 #include <dirent.h>
 #include "lightscript.h"
 
+#include "tokenstream.hpp"
+
 extern "C" {
 #include "lstokens.h"
     void yyparse(void);
@@ -33,14 +35,13 @@ extern "C" {
 
 char *inpfilename = (char *) "input";
 int debug = 0;
-int script_error = 0;
 
-
+LSTokenStream tokenStream;
 
 static void parse_file(char *filename)
 {
     yyin = fopen(filename,"r");
-    int t;
+    lstoktype_t t;
 
     if (!yyin) {
         fprintf(stderr,"Could not open %s : %s\n",filename,strerror(errno));
@@ -50,11 +51,16 @@ static void parse_file(char *filename)
     // Save file name for error messages.
     inpfilename = filename;
 
-    while ((t = yylex())) {
+    // Call the lexer and read all the tokens into the token stream.
+    while ((t = (lstoktype_t) yylex())) {
         printf("[%d]: ",yylineno);
         printf("%d ",t);
         if (t == tIDENT) printf("%s ",yylval.str);
         printf("\n");
+
+        LSToken tok = LSToken(t, yylineno, &yylval);
+        tokenStream.add(tok);
+        
     }
 
     fclose(yyin);

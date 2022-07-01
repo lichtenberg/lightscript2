@@ -1,13 +1,8 @@
-a,
+[a,
 b,   // this is a comment
 c,
 d,
-e
+e]
 
 
 
-
-// another comment
-
-
-xxx

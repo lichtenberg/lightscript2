@@ -18,6 +18,7 @@
 static char *unquote(char *str) {
     char *x = strchr(str+1,'"');
     if (x) *x = '\0';
+    // XXX this leaks.  Do we really need to duplicate this here?
     return strdup(str+1);
 }
 static inline double parsetime(char *str) {
@@ -34,6 +35,9 @@ static inline double parsetime(char *str) {
     seconds = minutes*60.0 + seconds;
     return seconds;
 }
+
+extern lstoken_t yylval;
+
 %}
 
 digit     [0-9]
@@ -64,10 +68,15 @@ hexdigit  [0-9A-Fa-f]
 "reverse"       return tREVERSE;
 "{"             return '{';
 "}"             return '}';
+"["             return '[';
+"]"             return ']';
 \;              return ';';
 \,              return ',';
 
-{letter}({digit}|{letter}|_)*      { yylval.str = strdup(yytext); return tIDENT; }
+{letter}({digit}|{letter}|_)*      {
+    yylval.str = strdup(yytext);
+    return tIDENT;
+    }
 {digit}+\.{digit}*                 { yylval.f    = atof(yytext); return tFLOAT; }
 {digit}+\:{digit}+\.{digit}+       { yylval.f    = parsetime(yytext); return tFLOAT; }
 {digit}+                           { yylval.w    = atoi(yytext); return tWHOLE; }

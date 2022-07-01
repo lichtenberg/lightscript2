@@ -7,37 +7,36 @@
 LSToken::LSToken()
 {
     type = YYEMPTY;
+    lineno = 0;
     fpval = 0;
     intval = 0;
     strval = "";
 }
 
-LSToken::LSToken(lstoktype_t tt)
+LSToken::LSToken(lstoktype_t tt, int lno, lstoken_t *tok)
 {
     LSToken();
+
     type = tt;
+    lineno = lno;
+
+    switch (tt) {
+        case tFLOAT:
+            fpval = tok->f;
+            break;
+        case tWHOLE:
+            intval = tok->w;
+            break;
+        case tIDENT:
+        case tSTRING:
+            if (tok->str) strval = tok->str;
+            break;
+        default:
+            break;
+    }
+                       
 }
 
-LSToken::LSToken(lstoktype_t tt, char *str)
-{
-    LSToken();
-    type = tt;
-    strval = str;
-}
-
-LSToken::LSToken(int whole)
-{
-    LSToken();
-    type = tWHOLE;
-    intval = whole;
-}
-
-LSToken::LSToken(double d)
-{
-    LSToken();
-    type = tFLOAT;
-    fpval = d;
-}
 
 LSToken::~LSToken()
 {
@@ -78,8 +77,9 @@ void LSTokenStream::match(lstoktype_t tt)
     if (current() == tt) {
         advance();
     } else {
-        printf("Syntax error!\n");
-        // throw xxx;
+        printf("[%d] Syntax error!\n", currentLine());
+        // XXX put real error codes/etc here.
+        throw -1;
     }
 }
 
@@ -105,4 +105,15 @@ lstoktype_t LSTokenStream::current(void)
 
     // Pick off the first element and return its type.
     return tokens.front().getType();
+}
+
+int LSTokenStream::currentLine(void)
+{
+    // If the stream is empty just return EOF
+    if (tokens.empty()) {
+        return 0;
+    }
+
+    // Pick off the first element and return its type.
+    return tokens.front().getLine();
 }
