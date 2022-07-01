@@ -6,13 +6,14 @@
     *  defines the tokens used by the parser.
     *  
     *  Author:  Mitch Lichtenberg
-^[ \t]*\n                          { printf("whitespace\n"); yylineno++; }
     ********************************************************************* */
 
 %option noyywrap yylineno
 %{
 #include "lightscript.h"
 #include "lstokens.h"
+#define YY_NO_INPUT
+#define YY_NO_UNPUT
 
 static char *unquote(char *str) {
     char *x = strchr(str+1,'"');

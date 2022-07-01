@@ -1,8 +1,8 @@
 
 
-OBJS = lsmain.o  lightscript.yy.o 
+OBJS = lsmain.o  lightscript.yy.o  tokenstream.o
 
-CFLAGS = -target x86_64-apple-macos10.13
+CFLAGS = -Wall -Werror -target x86_64-apple-macos10.13 
 #CFLAGS =
 
 %.o : %.c
@@ -15,7 +15,7 @@ CFLAGS = -target x86_64-apple-macos10.13
 	clang $(CFLAGS) -c -o $@ $<
 
 lightscript : $(OBJS)
-	clang $(CFLAGS) -o $@ $(OBJS) -framework Foundation -framework AVFoundation
+	clang $(CFLAGS) -o $@ $(OBJS) -lstdc++ -framework Foundation -framework AVFoundation
 	codesign -s mlichtenberg@me.com lightscript
 
 lightscript.yy.c : lightscript.lex lstokens.h lightscript.h

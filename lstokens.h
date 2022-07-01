@@ -1,5 +1,5 @@
 
-enum {
+typedef enum {
     YYEMPTY = -2,
     YYEOF = 0,                     /* "end of file"  */
     YYerror = 256,                 /* error  */
@@ -27,7 +27,7 @@ enum {
     tREVERSE = 278,                /* tREVERSE  */
     tCOLOR = 279,                  /* tCOLOR  */
     tOPTION = 280                  /* tOPTION  */
-};
+} lstoktype_t;
 
 
 typedef struct lstoken_s {
