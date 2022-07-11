@@ -1,0 +1,22 @@
+
+music "sunny.ac3";
+define STRIP1 as 3;
+define STRIP2 = 3;
+define RINGLETS as [RINGLET1, RINGLET2, RINGLET3];
+idle IDLEWHITE;
+defmacro MYMAC {
+   idle IDLEBLACK;
+   define XYX as 3;
+};
+defmacro MYMAC (arg1, arg2) {
+   idle IDLEBLACK;
+   define XYX as 3;
+};
+
+at 3.0 on [RINGLETS] do SOUNDPULSE speed 500 reverse;
+
+
+
+
+
+

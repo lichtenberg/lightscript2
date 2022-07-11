@@ -10,7 +10,6 @@
 
 %option noyywrap yylineno
 %{
-#include "lightscript.h"
 #include "lstokens.h"
 #define YY_NO_INPUT
 #define YY_NO_UNPUT
@@ -60,18 +59,26 @@ hexdigit  [0-9A-Fa-f]
 "delay"         return tDELAY;
 "brightness"    return tBRIGHTNESS;
 "define"        return tDEFINE;
+"defmacro"      return tDEFMACRO;
 "macro"         return tMACRO;
 "as"            return tAS;
 "palette"       return tPALETTE;
 "color"         return tCOLOR;
 "option"        return tOPTION;
 "reverse"       return tREVERSE;
+"defstrip"      return tDEFSTRIP;
+"defanim"       return tDEFANIM;
+"defcolor"      return tDEFCOLOR;
+"defpalette"    return tDEFPALETTE;
 "{"             return '{';
 "}"             return '}';
 "["             return '[';
 "]"             return ']';
+"("             return '(';
+")"             return ')';
 \;              return ';';
 \,              return ',';
+"="             return tAS;
 
 {letter}({digit}|{letter}|_)*      {
     yylval.str = strdup(yytext);

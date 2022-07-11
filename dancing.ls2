@@ -1,0 +1,368 @@
+//  Lightshow song: You Should be Dancing by BeeGees
+//  Lightshow name:  DancingBeeGees.mp3
+//  Lightshow elapsed time:  3:00
+
+//  History of build
+//  Date started 4-5-22 (0:0 - 1:40)
+//  This build:  6-26-22
+//   SCRIPT STARTS HERE:
+//
+
+music "DancingBeeGees.mp3";
+
+idle IDLEWHITE on ALLSPOKES;
+
+//
+// Scheduled items start here:
+//
+
+// DEFINITIONS
+
+//  FOR BLINK MACROS
+
+defmacro MAC1RING {
+    at 0.1 do BLINK on RING speed 100;
+    at 0.4 do OFF on RING;
+};
+
+
+defmacro MAC1RINGLETSY {
+    at 0.1 do BLINK on RINGLETS speed 100 color YELLOW;
+    at 0.4 do OFF on RINGLETS;
+};
+
+defmacro MAC1RINGLETSB {
+    at 0.1 do BLINK on RINGLETS speed 100 color BLUE;
+    at 0.4 do OFF on RINGLETS;
+};
+
+defmacro MAC1RINGLETSR {
+    at 0.1 do BLINK on RINGLETS speed 100 color RED;
+    at 0.4 do OFF on RINGLETS;
+};
+
+defmacro MAC1RINGLETSG {
+    at 0.1 do BLINK on RINGLETS speed 100 color GREEN;
+    at 0.4 do OFF on RINGLETS;
+};
+
+defmacro MAC1RINGLETSW {
+    at 0.1 do BLINK on RINGLETS speed 100 color WHITE;
+    at 0.4 do OFF on RINGLETS;
+};
+
+
+defmacro MAC1PERIMETER {
+    at 0.1 do BLINK on PERIMETER speed 100;
+    at 0.4 do OFF on PERIMETER;
+};
+
+ defmacro MAC3 {
+ 	at 0.1 do SOUNDPULSE on RINGLET1 speed 10 color BLUE;
+	at 0.9 do OFF on RINGLET1;
+	at 1.0 do SOUNDPULSE on RINGLET2 speed 10 color BLUE;
+	at 1.9 do OFF on RINGLET2;
+	at 2.0 do SOUNDPULSE on RINGLET3 speed 10 color BLUE;
+	at 2.9 do OFF on RINGLET3;
+	at 3.0 do SOUNDPULSE on RINGLET4 speed 10 color BLUE;
+	at 3.9 do OFF on RINGLET4;
+	at 4.0 do SOUNDPULSE on RINGLET5 speed 10 color BLUE;
+	at 4.9 do OFF on RINGLET5;
+	at 5.0 do SOUNDPULSE on RINGLET6 speed 10 color BLUE;
+	at 5.9 do OFF on RINGLET6;
+	at 6.0 do SOUNDPULSE on RINGLET7 speed 10 color BLUE;
+	at 6.9 do OFF on RINGLET7;
+	at 7.0 do SOUNDPULSE on RINGLET8 speed 10 color BLUE;
+	at 7.9 do OFF on RINGLET8;
+	at 8.0 do SOUNDPULSE on [RINGLET1,RINGLET5] speed 10 color RED;
+	at 8.9 do OFF on [RINGLET1, RINGLET5];
+	at 9.0 do SOUNDPULSE on [RINGLET2, RINGLET6] speed 10 color GREEN;
+	at 9.9 do OFF on [RINGLET2, RINGLET6];
+	at 10.0 do SOUNDPULSE on [RINGLET3, RINGLET7] speed 10 color BLUE;
+	at 10.9 do OFF on [RINGLET3, RINGLET7];
+	at 11.0 do SOUNDPULSE on [RINGLET4, RINGLET8] speed 10 color RED;
+	at 11.9 do OFF on [RINGLET4, RINGLET8] ;
+	at 12.0 do SOUNDPULSE on [RINGLETS, PERIMETER] speed 10 color PURPLE;
+	at 12.9 do OFF on [RINGLETS, PERIMETER];
+	at 13.0 do SOUNDPULSE on [RINGLETS, PERIMETER] speed 10 color YELLOW;
+	at 13.9 do OFF on [RINGLETS, PERIMETER];
+	at 14.0 do SOUNDPULSE on [RINGLETS, PERIMETER] speed 10 color WHITE;
+	at 14.9 do OFF on [RINGLETS,PERIMETER];
+};
+
+defmacro MAC2 {
+    at 0.0  do COMET on SPOKE1 speed 500;
+    at 0.15 do COMET on SPOKE3 speed 500;
+    at 0.30 do COMET on SPOKE5 speed 500;
+    at 0.45 do COMET on SPOKE7 speed 500;
+    at 0.0  do COMET on SPOKE2 speed 500 reverse;
+    at 0.15 do COMET on SPOKE4 speed 500 reverse;
+    at 0.30 do COMET on SPOKE6 speed 500 reverse;
+    at 0.45 do COMET on SPOKE8 speed 500 reverse;
+    
+};
+
+defmacro MAC4 {
+    at 0.1 do PIXELMARCH on ALLSPOKES speed 500 color YELLOW;
+    at 1.1 do PIXELMARCH on ALLSPOKES speed 500 color BLUE;
+    at 2.1 do PIXELMARCH on ALLSPOKES speed 500 color PURPLE;
+    at 3.1 do PIXELMARCH on ALLSPOKES speed 500 color RED;
+
+    at 4.1 do PIXELMARCH on ALLSPOKES speed 500 color YELLOW reverse;
+    at 5.1 do PIXELMARCH on ALLSPOKES speed 500 color BLUE reverse;
+    at 6.1 do PIXELMARCH on ALLSPOKES speed 500 color PURPLE reverse;
+    at 7.1 do PIXELMARCH on ALLSPOKES speed 500 color RED reverse;
+
+    at 8.1 do PIXELMARCH on ALLSPOKES speed 500 color AQUA;
+    at 9.1 do PIXELMARCH on ALLSPOKES speed 500 color BLUE;
+    at 10.1 do PIXELMARCH on ALLSPOKES speed 500 color MAGENTA;
+    at 11.1 do PIXELMARCH on ALLSPOKES speed 500 color LIME;
+
+    at 12.1 do PIXELMARCH on ALLSPOKES speed 500 color AQUA;
+    at 13.1 do PIXELMARCH on ALLSPOKES speed 500 color GOLD;
+    at 14.1 do PIXELMARCH on ALLSPOKES speed 500 color PURPLE;
+    at 15.1 do PIXELMARCH on ALLSPOKES speed 500 color RED;
+};
+
+// FADE COLORS FOR FOR RINGLET MACROS
+
+defmacro MAC5Y {
+at 0.1 do FADEIN on RINGLETS speed 1000 color YELLOW;
+at 1.1 do FADEOUT on RINGLETS speed 1000 color YELLOW;
+at 2.1 do OFF on RINGLETS;
+};
+
+defmacro MAC5B {
+at 0.1 do FADEIN on RINGLETS speed 1000 color BLUE;
+at 1.1 do FADEOUT on RINGLETS speed 1000 color BLUE;
+at 2.1 do OFF on RINGLETS;
+};
+
+defmacro MAC5R {
+at 0.1 do FADEIN on RINGLETS speed 1000 color RED;
+at 1.1 do FADEOUT on RINGLETS speed 1000 color RED;
+at 2.1 do OFF on RINGLETS;
+};
+
+
+defmacro MAC5G {
+at 0.1 do FADEIN on RINGLETS speed 1000 color GREEN;
+at 1.1 do FADEOUT on RINGLETS speed 1000 color GREEN;
+at 2.1 do OFF on RINGLETS;
+};
+
+defmacro MAC5W {
+at 0.1 do FADEIN on RINGLETS speed 1000 color WHITE;
+at 1.1 do FADEOUT on RINGLETS speed 1000 color WHITE;
+at 2.1 do OFF on RINGLETS;
+};
+
+
+ 
+defmacro MAC6 {
+
+at 1.0 cascade SOUNDPULSE on ALLSPOKES delay 0.1 speed 100 color BLUE;
+at 2.0 cascade SOUNDPULSE on ALLSPOKES delay 0.1 speed 100 color GREEN;
+at 3.0 cascade SOUNDPULSE on ALLSPOKES delay 0.1 speed 100 color RED;
+at 4.0 cascade SOUNDPULSE on ALLSPOKES delay 0.1 speed 100 color YELLOW;
+at 5.0 cascade SOUNDPULSE on ALLSPOKESREV delay 0.1 speed 100 color BLUE;
+at 6.0 cascade SOUNDPULSE on ALLSPOKESREV delay 0.1 speed 100 color GREEN;
+at 7.0 cascade SOUNDPULSE on ALLSPOKESREV delay 0.1 speed 100 color RED;
+at 8.0 cascade SOUNDPULSE on ALLSPOKESREV delay 0.1 speed 100 color YELLOW;
+at 9.0 cascade SOUNDPULSE on ALLSPOKES delay 0.1 speed 100 color PURPLE;
+
+};
+defmacro MAC7 {
+
+at 1.0 do SOUNDPULSE on RINGLETS delay 0.1 speed 100 color BLUE;
+at 2.0 do SOUNDPULSE on RINGLETS delay 0.1 speed 100 color GREEN;
+at 3.0 do SOUNDPULSE on RINGLETS delay 0.1 speed 100 color RED;
+at 4.0 do SOUNDPULSE on RINGLETS delay 0.1 speed 100 color YELLOW;
+at 5.0 do SOUNDPULSE on RINGLETS delay 0.1 speed 100 color BLUE;
+at 6.0 do SOUNDPULSE on RINGLETS delay 0.1 speed 100 color GREEN;
+at 7.0 do SOUNDPULSE on RINGLETS delay 0.1 speed 100 color RED;
+at 8.0 do SOUNDPULSE on RINGLETS delay 0.1 speed 100 color YELLOW;
+// at 9.0 do SOUNDPULSE on RINGLETS delay 0.1 speed 100 color PURPLE;
+
+};
+//=================================
+
+//                         MUSIC STARTS HERE:
+
+
+// No sound for first three seconds so we lead into it with SPARKLE2
+
+at 0.1 do SPARKLE2 on ALLSTRIPS speed 500 color PBLUE;
+at 2.9 do OFF on ALLSTRIPS;
+
+    
+// 15 seconds of bass drum
+
+at 2.9 macro MAC3;
+
+
+
+// Melody starts here:  
+
+
+//  Voice singing starts here "My baby moves at midnight . . " 
+
+ 
+ // This the trumpet triple "da-da-da" which marks the major beat in background:
+
+at 14.0 macro MAC1RING ;
+at 18.0 macro MAC1RING ;
+at 22.0 macro MAC1RING ;
+at 25.8 macro MAC1RING ;
+at 29.6 macro MAC1RING ;
+at 33.0 macro MAC1RING ;
+
+
+at 18.0 macro MAC4 ;  //PIXELMARCH - ALL SPPKES
+
+at 34.0 macro MAC6 ;  // ends at 43.70  //SOUNDPULSE - ALL SPOKES
+
+
+
+at 44.0 cascade GROW on [ULBOX, URBOX, LRBOX, LLBOX] delay 0.5 speed 1000 color YELLOW;
+at 48.0 cascade GROW on [ULBOX, URBOX, LRBOX, LLBOX] delay 0.5 speed 1000 color BLUE;
+at 52.0 cascade GROW on [ULBOX, URBOX, LRBOX, LLBOX] delay 0.5 speed 1000 color GREEN;
+at 56.0 cascade GROW on [ULBOX, URBOX, LRBOX, LLBOX] delay 0.5 speed 1000 color RED;
+at 60.0 do OFF on [ALLSPOKES, ULBOX, URBOX, LRBOX, LLBOX];
+
+
+
+at 1:16.0 cascade LARSONSCANNER on [ULBOX, URBOX, LRBOX, LLBOX] delay 0.5 speed 1000;
+at 1:19.0 do OFF on [ALLSPOKES, ULBOX, URBOX, LRBOX, LLBOX];
+at 1:19.5 cascade LARSONSCANNER on [ULBOX, URBOX, LRBOX, LLBOX] delay 0.5 speed 1000;
+at 1:22.5 do OFF on [ALLSPOKES, ULBOX, URBOX, LRBOX, LLBOX];
+at 1:23.0 cascade LARSONSCANNER on [ULBOX, URBOX, LRBOX, LLBOX] delay 0.5 speed 1000;
+at 1:25.0 do OFF on [ALLSPOKES, ULBOX, URBOX, LRBOX, LLBOX];
+
+at 1:25.5 cascade MOVINGBARS on [ULBOX, URBOX, LRBOX, LLBOX] delay 0.5 speed 1000;
+at 1:28.5 do OFF on [ALLSPOKES, ULBOX, URBOX, LRBOX, LLBOX];
+at 1:29.0 cascade MOVINGBARS on [ULBOX, URBOX, LRBOX, LLBOX] delay 0.5 speed 1000;
+at 1:32.0 do OFF on [ALLSPOKES, ULBOX, URBOX, LRBOX, LLBOX];
+at 1:32.5 cascade MOVINGBARS on [ULBOX, URBOX, LRBOX, LLBOX] delay 0.5 speed 1000;
+at 1:35.0 do OFF on [ALLSPOKES, ULBOX, URBOX, LRBOX, LLBOX];
+
+
+// break
+
+at 1:36.0 macro MAC1RINGLETSY ;
+at 1:38.0 macro MAC1RINGLETSB ;
+at 1:40.0 macro MAC1RINGLETSG ;
+at 1:42.0 macro MAC1RINGLETSR ;
+at 1:44.0 macro MAC1RINGLETSW ;
+at 1:46.0 macro MAC1RINGLETSY ;
+at 1:48.0 macro MAC1RINGLETSB ;
+at 1:50.0 macro MAC1RINGLETSG ;
+at 1:52.0 macro MAC1RINGLETSR ;
+at 1:54.0 macro MAC1RINGLETSW ;
+at 1:56.0 macro MAC1RINGLETSY ;
+at 1:58.0 macro MAC1RINGLETSB ;
+
+
+at 1:36.0  do COMET on PERIMETER  speed 1000  ;
+at 1:39.0  do COMET on PERIMETER  speed 1000 reverse ;
+at 1:42.0  do COMET on PERIMETER  speed 1000 ; 
+at 1:45.0  do COMET on PERIMETER  speed 1000 reverse ;
+at 1:48.0  do COMET on PERIMETER  speed 1000 ;
+at 1:52.0  do COMET on PERIMETER  speed 1000 reverse ;
+at 1:55.0  do COMET on PERIMETER  speed 1000 ; 
+at 1:58.0  do COMET on PERIMETER  speed 1000 reverse ;
+
+at 2:00.0 do OFF on ALLSTRIPS;
+
+ at 44.8 macro MAC1RING ;
+ at 49.0 macro MAC1RING ;
+ at 53.0 macro MAC1RING ;
+ at 57.0 macro MAC1RING ;
+ at 1:01.0 macro MAC1RING ;
+ at 1:05.0 macro MAC1RING ;
+ at 1:16.0 macro MAC1RING ;
+ at 1:20.0 macro MAC1RING ;
+ at 1:32.0 macro MAC1RING ;
+ at 1:36.0 macro MAC1RING ;
+ at 1:40.0 macro MAC1RING ;
+ at 1:44.0 macro MAC1RING ;
+
+// RINGLET MACROS
+
+ at 1:01.0 macro MAC5Y ;
+ at 1:03.0 macro MAC5B ;
+ at 1:05.0 macro MAC5R ;
+ at 1:07.0 macro MAC5G ;
+ at 1:09.0 macro MAC5Y ;
+ at 1:11.0 macro MAC5B ;
+ at 1:13.0 macro MAC5R ;
+ //at 1:15.0 macro MAC5G ;
+ 
+
+// break  no singing
+
+at 2:00.2 do SPARKLE2 on [RINGLETS, PERIMETER] speed 500;
+at 2:02.9 do OFF on [RINGLETS, PERIMETER];
+at 2:03.0 do SPARKLE2 on [RINGLETS, PERIMETER] speed 500 color RED;
+at 2:09.0 do OFF on [RINGLETS, PERIMETER];
+at 2:09.1 do SPARKLE2 on [RINGLETS, PERIMETER] speed 500 color BLUE;
+at 2:14.0 do OFF on [RINGLETS, PERIMETER];
+at 2:14.1 do SPARKLE2 on [RINGLETS, PERIMETER] speed 500 color YELLOW;
+at 2:20.0 do OFF on [RINGLETS, PERIMETER];
+at 2:20.1 do SPARKLE2 on [RINGLETS, PERIMETER] speed 500 color GREEN;
+at 2:26.0 do OFF on [RINGLETS, PERIMETER];
+at 2:26.1 do SPARKLE2 on [RINGLETS, PERIMETER] speed 500 color PURPLE;
+at 2:32.0 do OFF on [RINGLETS, PERIMETER];
+ 
+  at 2:03.0 macro MAC1RING ;
+  at 2:07.0 macro MAC1RING ;
+  at 2:11.0 macro MAC1RING ;
+  at 2:15.0 macro MAC1RING ;
+  at 2:27.0 macro MAC1RING ;
+  at 2:31.0 macro MAC1RING ;
+  
+  at 2:42.0 macro MAC1RING ;
+  at 2:46.0 macro MAC1RING ;
+
+
+  at 2:32.1 macro MAC7 ;
+  at 2:39.0 macro MAC7 ;
+  
+
+// the music fades at the end
+
+  at 2:48.0 do FADEINOUT on [RING] speed 1000 color GREEN;
+  at 2:50.0 do FADEINOUT on [RING, RINGLETS] speed 1000 color BLUE;
+  at 2:52.0 do FADEINOUT on [RING, RINGLETS, ALLSPOKES] speed 1000 color RED;
+  at 2:54.0 do FADEINOUT on [RING, RINGLETS, ALLSPOKES, PERIMETER] speed 1000 color BLUE;
+  at 2:56.0 do FADEINOUT on [RING, RINGLETS, ALLSPOKES, PERIMETER] speed 1000 color RED;
+  at 2:58.0 do FADEINOUT on [RING, RINGLETS, ALLSPOKES, PERIMETER] speed 1000 color WHITE;
+
+  at 3:00.0 do OFF on ALLSTRIPS;
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+

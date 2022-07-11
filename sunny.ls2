@@ -1,0 +1,210 @@
+
+// build: 2-22-21
+// edited and additions 5-23-21
+//
+// OK here is where our script starts
+//
+
+
+idle IDLEWHITE on ALLSPOKES;
+
+music "sunny.mp3";
+
+//
+// Scheduled items start here.
+//
+at 0.1 do OFF on RING;
+
+defmacro MAC1 {
+    at 0.1 do SOUNDPULSE on EVENSPOKES speed 500 color 0x008000;
+    at 0.5 do SOUNDPULSE on ODDSPOKES  speed 500 color 0xFFFF00;
+    at 0.9 do SOUNDPULSE on ALLSPOKES  speed 500 color 0xFF0000;
+};
+
+defstrip RINGLETS as [RINGLET1,RINGLET2,RINGLET3,RINGLET4,RINGLET5];    
+
+defmacro MAC2 {
+    at 0.0  do COMET on SPOKE1 speed 500;
+    at 0.15 do COMET on SPOKE3 speed 500;
+    at 0.30 do COMET on SPOKE5 speed 500;
+    at 0.45 do COMET on SPOKE7 speed 500;
+    at 0.0  do COMET on SPOKE2 speed 500 reverse;
+    at 0.15 do COMET on SPOKE4 speed 500 reverse;
+    at 0.30 do COMET on SPOKE6 speed 500 reverse;
+    at 0.45 do COMET on SPOKE8 speed 500 reverse;
+};
+
+defmacro MAC3 {
+    at 0.1 do BLINK on RING speed 100;
+    at 0.5 do BLINK on RING speed 100;
+    at 0.8 do BLINK on RING speed 100;
+};  
+
+defcolor COLOR3 as 0x0000ff;
+define SPEED4 as 1000;
+
+defmacro MAC4 {
+    at 0.1 do PIXELMARCH on ALLSTRIPS speed 1000 color 0xFFFF00;
+    at 1.1 do PIXELMARCH on ALLSTRIPS speed 1000 color COLOR3;
+    at 2.1 do PIXELMARCH on ALLSTRIPS speed 1000 color 0x800080;
+    at 3.1 do PIXELMARCH on ALLSTRIPS speed 1000 color 0xFF0000;
+
+    at 4.1 do PIXELMARCH on ALLSTRIPS speed 1000 color 0xFFFF00 reverse;
+    at 5.1 do PIXELMARCH on ALLSTRIPS speed 1000 color 0x0000FF reverse;
+    at 6.1 do PIXELMARCH on ALLSTRIPS speed 1000 color 0x800080 reverse;
+    at 7.1 do PIXELMARCH on ALLSTRIPS speed 1000 color 0xFF0000 reverse;
+
+    at 8.1 do PIXELMARCH on ALLSTRIPS speed 1000 color 0x00FFFF;
+    at 9.1 do PIXELMARCH on ALLSTRIPS speed 1000 color 0x0000FF;
+    at 10.1 do PIXELMARCH on ALLSTRIPS speed 1000 color 0xFFA500;
+    at 11.1 do PIXELMARCH on ALLSTRIPS speed 1000 color 0x00FF00;
+
+    at 12.1 do PIXELMARCH on ALLSTRIPS speed 1000 color 0x00FFFF;
+    at 13.1 do PIXELMARCH on ALLSTRIPS speed 1000 color 0x000080;
+    at 14.1 do PIXELMARCH on ALLSTRIPS speed 1000 color 0x800080;
+    at 15.1 do PIXELMARCH on ALLSTRIPS speed 1000 color 0xFF0000;
+};
+
+// defmacro MAC5 {
+//     at 0.1 do SOUNDPULSE on SPOKE8 speed 500 color 0x0000FF;
+//     at 0.5 do SOUNDPULSE on SPOKE8 speed 500 color 0xFFFF00;
+ //    at 0.9 do SOUNDPULSE on SPOKE8 speed 500 color 0xFFFFFF;
+
+// 
+
+//
+// snare drum - sparkles light beat
+
+at 0.0 do OFF on ALLSPOKES;
+
+at 0.5 do SPARKLE2 on EVENSPOKES speed 500;
+at 2.6 do OFF on EVENSPOKES;
+
+at 2.7 do SPARKLE2 on ODDSPOKES speed 500;
+at 4.6 do OFF on ODDSPOKES;
+
+at 4.7 do SPARKLE2 on ALLSPOKES speed 500;
+at 7.9 do OFF on ALLSPOKES;
+
+//
+// Intro -  Soundpulse matches heavy beat
+
+at 8.0  macro MAC1;
+at 10.0 macro MAC1;
+at 12.0 macro MAC1;
+at 14.0 macro MAC1;
+at 16.0 macro MAC1;
+at 18.0 macro MAC1;
+at 20.0 macro MAC1;
+at 22.0 macro MAC1;
+
+
+//
+// Intro beat ends with rapid flashes on ring
+
+
+at 22.1 macro MAC3;
+at 23.1 macro MAC3;
+at 24.0 do OFF on RING;
+
+
+//
+//Comet (221) begins first verse of song ("Sunny, Yesterday my life . . ."
+
+
+at 24.0 macro MAC2;
+at 26.0 macro MAC2;
+at 28.0 macro MAC2;
+at 30.0 macro MAC2;
+at 32.0 macro MAC2;
+
+
+//
+// moving bars (241) (Sunny, You smiled at me .. . ."
+
+at 33.0 cascade MOVINGBARS on EVENSTRIPS delay 0.1 speed 1000;
+at 38.0 cascade MOVINGBARS on ODDSTRIPS delay 0.1 speed 1000 reverse;
+at 43.0 cascade MOVINGBARS on EVENSTRIPS delay 0.1 speed 1000; 
+at 48.0 cascade MOVINGBARS on ODDSTRIPS delay 0.1 speed 1000 reverse;
+at 49.0 cascade MOVINGBARS on EVENSTRIPS delay 0.1 speed 1000;
+
+at 50.0 cascade MOVINGBARS on ALLSTRIPS delay 0.1 speed 1000;
+at 51.0 cascade MOVINGBARS on ALLSTRIPS delay 0.1 speed 1000;
+
+
+
+at 52.0 cascade SOUNDPULSE on ALLSTRIPS delay 0.25 speed 1000;
+
+// Second verse ("Sunny, thank you for the sunshine bouquet . . ."
+
+at 55.0 do PIXELBOUNCE on EVENSPOKES speed 1000;
+at 58.0 do PIXELBOUNCE on ODDSPOKES speed 1000;
+at 1:1.0 do PIXELBOUNCE on ALLSPOKES speed 1000;
+
+at  1:4.0 cascade COMETCOL on EVENSPOKES delay 0.1 speed 1000;
+at  1:7.0 cascade COMETCOL on ODDSPOKES delay 0.1 speed 1000 reverse;
+at  1:10.0 cascade COMETCOL on EVENSPOKES delay 0.1 speed 1000; 
+at  1:13.0 cascade COMETCOL on ODDSPOKES delay 0.1 speed 1000 reverse;
+at  1:16.0 cascade COMETCOL on EVENSPOKES delay 0.1 speed 1000;
+ 
+at  1:19.0 cascade LARSONSCANNER on ALLSPOKES delay 0.1 speed 1000;  
+at  1:22.0 cascade LARSONSCANNER on ALLSPOKES delay 0.1 speed 1000;
+
+at  1:25.5 do OFF on ALLSTRIPS;
+
+// Third verse ("Sunny, thank you for the truth you let me see."
+
+at  1:26.0 do MOVINGGRADIENT on ALLSTRIPS speed 1000;
+at  1:35.0 do MOVINGGRADIENT on ALLSTRIPS speed 1000 reverse;
+at  1:42.0 do MOVINGGRADIENT on ALLSTRIPS speed 1000;
+
+at  1:48.0 cascade SOUNDPULSE on ALLSTRIPS delay 0.25 speed 500;
+
+//  Musical bridge starts here:  1:56.0 "Sunny . . . . .") to 2:28
+
+// at 1:51.0 macro MAC5;
+// at 1:52.0 macro MAC5;
+// at 1:53.0 macro MAC5;
+// at 1:54.0 macro MAC5;
+// at 1:55.0 macro MAC5;
+// at 1:56.0 macro MAC5;
+
+// at 1:57.0 do OFF on RING;
+
+at  1:57.0 do PIXELSMOOTHSHIFTRIGHT on ALLSTRIPS speed 1000;
+at  2:5.0 do PIXELSMOOTHSHIFTLEFT on ALLSTRIPS speed 1000;
+at  2:12.0 do PIXELSMOOTHBOUNCE on ALLSTRIPS speed 1000;
+ 
+at 2:17.0 macro MAC2;
+at 2:24.0 macro MAC2;
+//at 2:31.0 macro MAC2;
+//at 2:38.0 macro MAC2;
+
+at 2:31.0 macro MAC4;
+
+at 2:47.0 do GROW on ALLSTRIPS speed 200 color 0xFFFFFF;
+at 2:47.5 do SHRINK on ALLSTRIPS speed 200 color 0xFFFFFF;
+at 2:48.0 do GROW on ALLSTRIPS speed 200 color 0x0000FF;
+at 2:48.5 do SHRINK on ALLSTRIPS speed 200 color 0x0000FF;
+at 2:49.0 do GROW on ALLSTRIPS speed 200 color 0xFFFF00;
+at 2:49.5 do SHRINK on ALLSTRIPS speed 200 color 0xFFFF00;
+at 2:50.0 do GROW on ALLSTRIPS speed 200 color 0xFF00FF;
+at 2:50.5 do SHRINK on ALLSTRIPS speed 200 color 0xFF00FF;
+
+
+
+at 2:51.0 do FADEOUT on ALLSTRIPS speed 4000 color 0x0000FF;
+at 2:52.0 do FADEOUT on ALLSTRIPS speed 4000 color 0x00FFFF;
+at 2:53.0 do FADEOUT on ALLSTRIPS speed 4000 color 0xFFD700;
+at 2:54.0 do FADEOUT on ALLSTRIPS speed 4000 color 0xFFFF00;
+at 2:55.0 do FADEOUT on ALLSTRIPS speed 4000 color 0x800080;
+at 2:56.0 do FADEOUT on ALLSTRIPS speed 4000 color 0xFF00FF;
+at 2:57.0 do FADEOUT on ALLSTRIPS speed 4000 color 0x808080;
+at 2:58.0 do FADEOUT on ALLSTRIPS speed 4000 color 0x000000;
+
+at 2:59.0 do FADECOLORSLOOP on ALLSTRIPS speed 8000;
+
+at 3:18.0 do OFF on ALLSTRIPS;
+
+
+

@@ -4,6 +4,17 @@
 typedef enum {
     YYEMPTY = -2,
     YYEOF = 0,                     /* "end of file"  */
+
+    // Make enums for some of our character tokens to keep compiler happy
+    LBRACKET = '[',
+    RBRACKET = ']',
+    LBRACE = '{',
+    RBRACE = '}',
+    LPAREN = '(',
+    RPAREN = ')',
+    COMMA = ',',
+    SEMICOLON = ';',
+
     YYerror = 256,                 /* error  */
     YYUNDEF = 257,                 /* "invalid token"  */
     tFLOAT = 258,                  /* tFLOAT  */
@@ -28,10 +39,16 @@ typedef enum {
     tPALETTE = 277,                /* tPALETTE  */
     tREVERSE = 278,                /* tREVERSE  */
     tCOLOR = 279,                  /* tCOLOR  */
-    tOPTION = 280                  /* tOPTION  */
+    tOPTION = 280,                 /* tOPTION  */
+    tDEFMACRO = 281,               /* tDEFMACRO */
+    tDEFSTRIP = 282,
+    tDEFANIM = 283,
+    tDEFCOLOR = 284,
+    tDEFPALETTE = 285,
 } lstoktype_t;
 
 #define CHARTOKEN(x) ((lstoktype_t) (x))
+#define ENDOFLIST ((lstoktype_t) YYEMPTY)
 
 
 typedef struct lstoken_s {

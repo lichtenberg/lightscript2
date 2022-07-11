@@ -1,4 +1,6 @@
 
+#pragma once
+
 #include <string>
 #include <vector>
 #include "lstokens.h"
@@ -41,13 +43,24 @@ public:
     LSTokenStream();
     ~LSTokenStream();
 
+private:
+    std::string errorStr;
+
 public:
     void add(LSToken& tok);
-    void advance(void);
+    lstoktype_t advance(void);
     void match(lstoktype_t tt);
+    std::string matchIdent();
+    std::string matchString();
+    int matchInt();
+    double matchFloat();
+    bool predict(lstoktype_t set[]);
     lstoktype_t current(void);
     int currentLine(void);
+    void error(const char *, ...);
     bool get(LSToken& tok);
+    const char *tokenStr(lstoktype_t tt);
+    const char *setStr(lstoktype_t set[]);
 
 private:
     std::vector<LSToken> tokens;
