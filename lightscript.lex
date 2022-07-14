@@ -84,8 +84,8 @@ hexdigit  [0-9A-Fa-f]
     yylval.str = strdup(yytext);
     return tIDENT;
     }
-{digit}+\.{digit}*                 { yylval.f    = atof(yytext); return tFLOAT; }
-{digit}+\:{digit}+\.{digit}+       { yylval.f    = parsetime(yytext); return tFLOAT; }
+-?{digit}+\.{digit}*               { yylval.f    = atof(yytext); return tFLOAT; }
+-?{digit}+\:{digit}+\.{digit}+     { yylval.f    = parsetime(yytext); return tFLOAT; }
 {digit}+                           { yylval.w    = atoi(yytext); return tWHOLE; }
 \".*\"                             { yylval.str = unquote(yytext); return tSTRING; }
 0x{hexdigit}+                      { yylval.w    = strtol(yytext,NULL,0); return tWHOLE; }
