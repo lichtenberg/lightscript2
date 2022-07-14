@@ -52,9 +52,13 @@ static double current_time(LSScript_t *script)
     return ((double) (tv.tv_sec - epoch)) + ((double)(tv.tv_usec)/1000000.0);
 }
 
+#define LSCMD_ANIMATE           0
+#define LSCMD_BRIGHTNESS        1
+
 typedef struct __attribute__((packed)) lsmessage_s {
     uint8_t     ls_sync[2];
-    uint16_t    ls_reserved;
+    uint8_t     ls_command;
+    uint8_t     ls_reserved;
     uint16_t    ls_anim;
     uint16_t    ls_speed;
     uint16_t    ls_option;
@@ -62,7 +66,7 @@ typedef struct __attribute__((packed)) lsmessage_s {
     uint32_t    ls_strips;
 } lsmessage_t;
 
-void send_message(unsigned int strips, unsigned int anim,  unsigned int speed, unsigned int option, unsigned int palette)
+static void send_animate(uint32_t strips, uint16_t anim,  uint16_t speed, uint16_t option, uint32_t color)
 {
     lsmessage_t msg;
 
@@ -76,8 +80,9 @@ void send_message(unsigned int strips, unsigned int anim,  unsigned int speed, u
     msg.ls_anim = anim;
     msg.ls_speed = speed;
     msg.ls_option = option;
-    msg.ls_color = palette;
+    msg.ls_color = color;
     msg.ls_reserved = 0;
+    msg.ls_command = LSCMD_ANIMATE;
 
     if (write(device, &msg, sizeof(msg)) != sizeof(msg)) {
         perror("Write Error to Picolight");
@@ -126,7 +131,7 @@ static void play_events(LSScript_t *script,LSSchedule *sched)
             if (cmd->direction) anim |= 0x8000;
             
             sched->printSchedEntry(cmd);
-            send_message(cmd->stripmask, anim, cmd->speed, cmd->option, cmd->palette);
+            send_animate(cmd->stripmask, anim, cmd->speed, cmd->option, cmd->palette);
 
             idx++;
         }
@@ -172,7 +177,7 @@ int player_callback(double now)
         if (cmd->direction) anim |= 0x8000;
             
         cursched->printSchedEntry(cmd);
-        send_message(cmd->stripmask, anim, cmd->speed, cmd->option, cmd->palette);
+        send_animate(cmd->stripmask, anim, cmd->speed, cmd->option, cmd->palette);
 
         musicpos++;
     }
@@ -228,7 +233,7 @@ static void play_idle(void)
 
     if (curscript->lss_idleanimation != "") {
         if (curscript->animTable->findSym(curscript->lss_idleanimation,v)) {
-            send_message((uint32_t) mask, v, 500, 0, 0);
+            send_animate((uint32_t) mask, v, 500, 0, 0);
         } else {
             printf("Warning: idle animation '%s' is not valid\n",curscript->lss_idleanimation.c_str());
         }
@@ -240,7 +245,7 @@ static void all_off(void)
 {
     // Send "OFF" to everyone, then wait 200ms.
     if (offAnim) {
-        send_message(0x7FFFFFFF, offAnim, 500, 0, 0);
+        send_animate(0x7FFFFFFF, offAnim, 500, 0, 0);
         msleep(200);
     } 
 }
