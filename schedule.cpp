@@ -22,6 +22,7 @@ static const char *lsctypes[] = {
     [LSC_CASCADE] = "CASCADE",
     [LSC_DO] = "DO",
     [LSC_MACRO] = "MACRO",
+    [LSC_COMMENT] = "COMMENT",
 };
 #endif
 
@@ -206,6 +207,15 @@ void LSSchedule::insert_cascade(double baseTime, LSCommand_t *c)
     }
 }
 
+void LSSchedule::insert_comment(double baseTime, LSCommand_t *c)
+{
+    schedcmd_t *scmd = newSchedCmd(baseTime, c);
+    scmd->comment = c->lsc_comment.c_str();
+
+    // Place in the final schedule.
+    addSched(scmd);
+}
+
 void LSSchedule::insert_macro(double baseTime, LSCommand_t *c)
 {
     cmdlist_t *commands;
@@ -235,6 +245,9 @@ void LSSchedule::insert(double baseTime, LSCommand_t *c)
             break;
         case LSC_MACRO:
             insert_macro(baseTime, c);
+            break;
+        case LSC_COMMENT:
+            insert_comment(baseTime, c);
             break;
         default:
             break;
@@ -307,29 +320,35 @@ void LSSchedule::printSchedEntry(schedcmd_t *scmd)
     char timestr[16];
     std::string name;
 
-    if (script->animTable->findVal(scmd->animation, name)) {
-        snprintf(animstr,sizeof(animstr),"%s",name.c_str());
-    } else {
-        snprintf(animstr,sizeof(animstr),"%u",scmd->animation);
-    }
-
     fmttime(timestr,scmd->time);
 
-    if (script->colorTable->findVal(scmd->palette, name)) {
-        snprintf(colorstr,sizeof(colorstr),"%s",name.c_str());
+    if (scmd->comment) {
+        printf("\n");
+        printf("Time %8s | Line %3d | %s\n",timestr,scmd->line,scmd->comment);
+        printf("\n");
     } else {
-        if (scmd->palette & COLORFLG) {
-            snprintf(colorstr,sizeof(colorstr),"color 0x%06X", scmd->palette & 0x00FFFFFF);
+        if (script->animTable->findVal(scmd->animation, name)) {
+            snprintf(animstr,sizeof(animstr),"%s",name.c_str());
         } else {
-            snprintf(colorstr,sizeof(colorstr),"palette %2u",scmd->palette);
+            snprintf(animstr,sizeof(animstr),"%u",scmd->animation);
         }
-    }
 
-    printf("Time %8s | Line %3d | %-15.15s %c | speed %5u | option %5u | %-14.14s %c | strips %s\n",timestr,scmd->line, animstr,
-           scmd->direction ? 'R' : 'F',
-           scmd->speed, scmd->option,
-           colorstr, (scmd->palette & COLORFLG ? ' ' : 'P'),
-           maskstr(tmpstr,scmd->stripmask));
+        if (script->colorTable->findVal(scmd->palette, name)) {
+            snprintf(colorstr,sizeof(colorstr),"%s",name.c_str());
+        } else {
+            if (scmd->palette & COLORFLG) {
+                snprintf(colorstr,sizeof(colorstr),"color 0x%06X", scmd->palette & 0x00FFFFFF);
+            } else {
+                snprintf(colorstr,sizeof(colorstr),"palette %2u",scmd->palette);
+            }
+        }
+
+        printf("Time %8s | Line %3d | %-15.15s %c | speed %5u | option %5u | %-14.14s %c | strips %s\n",timestr,scmd->line, animstr,
+               scmd->direction ? 'R' : 'F',
+               scmd->speed, scmd->option,
+               colorstr, (scmd->palette & COLORFLG ? ' ' : 'P'),
+               maskstr(tmpstr,scmd->stripmask));
+    }
 }
 
 

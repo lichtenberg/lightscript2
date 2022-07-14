@@ -70,6 +70,8 @@ hexdigit  [0-9A-Fa-f]
 "defanim"       return tDEFANIM;
 "defcolor"      return tDEFCOLOR;
 "defpalette"    return tDEFPALETTE;
+"direction"     return tDIRECTION;
+"comment"       return tCOMMENT;
 "{"             return '{';
 "}"             return '}';
 "["             return '[';
@@ -86,9 +88,9 @@ hexdigit  [0-9A-Fa-f]
     }
 -?{digit}+\.{digit}*               { yylval.f    = atof(yytext); return tFLOAT; }
 -?{digit}+\:{digit}+\.{digit}+     { yylval.f    = parsetime(yytext); return tFLOAT; }
-{digit}+                           { yylval.w    = atoi(yytext); return tWHOLE; }
+{digit}+                           { yylval.f    = (double) atoi(yytext); return tFLOAT; }
 \".*\"                             { yylval.str = unquote(yytext); return tSTRING; }
-0x{hexdigit}+                      { yylval.w    = strtol(yytext,NULL,0); return tWHOLE; }
+0x{hexdigit}+                      { yylval.f    = (double) strtol(yytext,NULL,0); return tFLOAT; }
 \/\/.*$                            { }
 \n                                 { }
 

@@ -1,5 +1,7 @@
 #include <stdarg.h>
 
+#include <assert.h>
+
 #include "lstokens.h"
 
 #include "tokenstream.hpp"
@@ -10,7 +12,6 @@ LSToken::LSToken()
     type = YYEMPTY;
     lineno = 0;
     fpval = 0;
-    intval = 0;
     strval = "";
 }
 
@@ -24,9 +25,6 @@ LSToken::LSToken(lstoktype_t tt, int lno, lstoken_t *tok)
     switch (tt) {
         case tFLOAT:
             fpval = tok->f;
-            break;
-        case tWHOLE:
-            intval = tok->w;
             break;
         case tIDENT:
         case tSTRING:
@@ -64,7 +62,6 @@ static tokenmap_t tokenNames[] = {
     {COMMA,","},
     {SEMICOLON,";"},
     {tFLOAT,"floating-point-number"},
-    {tWHOLE,"number"},
     {tIDENT,"identifier"},
     {tSTRING,"string"},
     {tMUSIC,"music"},
@@ -87,6 +84,7 @@ static tokenmap_t tokenNames[] = {
     {tDEFMACRO,"defmacro"},
     {tDEFSTRIP,"defstrip"},
     {tDEFANIM,"defanim"},
+    {tCOMMENT,"comment"},
     {YYEMPTY, NULL}
 };
 
@@ -226,8 +224,8 @@ int LSTokenStream::matchInt(void)
 {
     int ret;
     
-    if (current() == tWHOLE) {
-        ret = tokens.front().getInt();
+    if (current() == tFLOAT) {
+        ret = (int) tokens.front().getFloat();
         advance();
         return ret;
     } else {

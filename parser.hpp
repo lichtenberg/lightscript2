@@ -23,6 +23,7 @@ private:
     idlist_t *parseIDList();
     idlist_t *parseIDSingle();
     idlist_t *parseArgList();
+    vallist_t *parseValueList();
     void parseOption(LSCommand_t *cmd);
     void parseOptionList(LSCommand_t *cmd);
     void parseMacroBody(idlist_t * &idl, cmdlist_t * &cmdl);

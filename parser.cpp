@@ -98,6 +98,29 @@ idlist_t *LSParser::parseArgList(void)
     return idlist;
 }
 
+vallist_t *LSParser::parseValueList(void)
+{
+    vallist_t *vallist;
+
+    vallist = new vallist_t;
+    
+    tokenStream->match(CHARTOKEN('('));
+
+    while (tokenStream->current() != CHARTOKEN(')')) {
+        vallist->push_back(tokenStream->matchFloat());
+        if (tokenStream->current() == CHARTOKEN(',')) {
+            tokenStream->advance();
+            continue;
+        } else {
+            // Drop down to either match our bracket or die.
+            break;
+        }
+    }
+
+    tokenStream->match(CHARTOKEN(')'));
+    return vallist;
+}
+
 void LSParser::parseMacroBody(idlist_t * &idl, cmdlist_t * &cmdl)
 {
     cmdlist_t *cmdlist;
@@ -136,6 +159,8 @@ void LSParser::parseOption(LSCommand_t *cmd)
         tPALETTE,
         tCOLOR,
         tREVERSE,
+        tDIRECTION,
+        tCOMMENT,
         ENDOFLIST};
 
     lstoktype_t tt;
@@ -167,12 +192,16 @@ void LSParser::parseOption(LSCommand_t *cmd)
             cmd->lsc_type = LSC_DO;
             cmd->lsc_animation = tokenStream->matchIdent();
             break;
+        case tCOMMENT:
+            cmd->lsc_type = LSC_COMMENT;
+            cmd->lsc_comment = tokenStream->matchString();
+            break;
         case tMACRO:
             cmd->lsc_type = LSC_MACRO;
             cmd->lsc_macro = tokenStream->matchIdent();
             if (tokenStream->current() == CHARTOKEN('(')) {
                 // Parse arguments here
-                cmd->lsc_macroArgs = parseArgList();
+                cmd->lsc_macroArgs = parseValueList();
             }
             break;
         case tBRIGHTNESS:
@@ -191,7 +220,7 @@ void LSParser::parseOption(LSCommand_t *cmd)
             cmd->opt_option = tokenStream->matchInt();
             break;
         case tPALETTE:
-            if (tokenStream->current() == tWHOLE) {
+            if (tokenStream->current() == tFLOAT) {
                 cmd->opt_color = tokenStream->matchInt();
                 cmd->opt_colorIdent = "";
             } else {
@@ -199,7 +228,7 @@ void LSParser::parseOption(LSCommand_t *cmd)
             }
             break;
         case tCOLOR:
-            if (tokenStream->current() == tWHOLE) {
+            if (tokenStream->current() == tFLOAT) {
                 cmd->opt_color = tokenStream->matchInt() | COLORFLG;
                 cmd->opt_colorIdent = "";
             } else {
@@ -208,6 +237,13 @@ void LSParser::parseOption(LSCommand_t *cmd)
             break;
         case tREVERSE:
             cmd->opt_reverse = true;
+            break;
+        case tDIRECTION:
+            // This is a different way to specify the directiont that can be parameterized
+            {
+                int dir = tokenStream->matchInt();
+                cmd->opt_reverse = (dir) < 0 ? true : false;
+            }
             break;
         default:
             break;

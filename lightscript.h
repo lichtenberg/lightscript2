@@ -20,10 +20,12 @@ typedef enum {
     LSC_CASCADE = 1,
     LSC_DO = 2,
     LSC_MACRO = 3,
+    LSC_COMMENT = 4
 } lsctype_t;
 
 #define COLORFLG  0x1000000
 typedef std::vector<std::string> idlist_t;
+typedef std::vector<double> vallist_t;
 
 typedef struct LSCommand_s {
     // Command type:
@@ -39,8 +41,9 @@ typedef struct LSCommand_s {
 
     // Macro name (if it's a macro call)
     std::string lsc_macro;
-    idlist_t *lsc_macroArgs;
+    vallist_t *lsc_macroArgs;
 
+    std::string lsc_comment;
     // Animation
     std::string lsc_animation;
     // Strip list

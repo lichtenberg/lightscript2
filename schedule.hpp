@@ -5,6 +5,7 @@
 
 typedef struct schedcmd_s {
     double time;
+    const char *comment;
     int line;
     uint64_t stripmask;
     int animation;
@@ -32,6 +33,7 @@ private:
 private:
     void insert(double baseTime, LSCommand_t *c);
     void insert_do(double baseTime, LSCommand_t *c);
+    void insert_comment(double baseTime, LSCommand_t *c);
     void insert_cascade(double baseTime, LSCommand_t *c);
     void insert_macro(double baseTime, LSCommand_t *c);
     schedcmd_t *newSchedCmd(double baseTime, LSCommand_t *cmd);

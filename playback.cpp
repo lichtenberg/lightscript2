@@ -131,7 +131,9 @@ static void play_events(LSScript_t *script,LSSchedule *sched)
             if (cmd->direction) anim |= 0x8000;
             
             sched->printSchedEntry(cmd);
-            send_animate(cmd->stripmask, anim, cmd->speed, cmd->option, cmd->palette);
+            if (cmd->comment == NULL) {
+                send_animate(cmd->stripmask, anim, cmd->speed, cmd->option, cmd->palette);
+            }
 
             idx++;
         }
@@ -177,7 +179,9 @@ int player_callback(double now)
         if (cmd->direction) anim |= 0x8000;
             
         cursched->printSchedEntry(cmd);
-        send_animate(cmd->stripmask, anim, cmd->speed, cmd->option, cmd->palette);
+        if (cmd->comment == NULL) {
+            send_animate(cmd->stripmask, anim, cmd->speed, cmd->option, cmd->palette);
+        }
 
         musicpos++;
     }

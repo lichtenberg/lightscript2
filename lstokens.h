@@ -18,7 +18,6 @@ typedef enum {
     YYerror = 256,                 /* error  */
     YYUNDEF = 257,                 /* "invalid token"  */
     tFLOAT = 258,                  /* tFLOAT  */
-    tWHOLE = 259,                  /* tWHOLE  */
     tIDENT = 260,                  /* tIDENT  */
     tSTRING = 261,                 /* tSTRING  */
     tMUSIC = 262,                  /* tMUSIC  */
@@ -45,6 +44,8 @@ typedef enum {
     tDEFANIM = 283,
     tDEFCOLOR = 284,
     tDEFPALETTE = 285,
+    tDIRECTION = 286,
+    tCOMMENT = 287,
 } lstoktype_t;
 
 #define CHARTOKEN(x) ((lstoktype_t) (x))
@@ -53,7 +54,6 @@ typedef enum {
 
 typedef struct lstoken_s {
     double f;
-    int w;
     char *str;
 } lstoken_t;
 
