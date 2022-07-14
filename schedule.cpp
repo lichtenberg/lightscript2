@@ -315,16 +315,21 @@ void LSSchedule::printSchedEntry(schedcmd_t *scmd)
 
     fmttime(timestr,scmd->time);
 
-    if (scmd->palette & COLORFLG) {
-        snprintf(colorstr,sizeof(colorstr),"color 0x%06X", scmd->palette & 0x00FFFFFF);
+    if (script->colorTable->findVal(scmd->palette, name)) {
+        snprintf(colorstr,sizeof(colorstr),"%s",name.c_str());
     } else {
-        snprintf(colorstr,sizeof(colorstr),"palette %2u    ",scmd->palette);
+        if (scmd->palette & COLORFLG) {
+            snprintf(colorstr,sizeof(colorstr),"color 0x%06X", scmd->palette & 0x00FFFFFF);
+        } else {
+            snprintf(colorstr,sizeof(colorstr),"palette %2u",scmd->palette);
+        }
     }
 
-    printf("Time %8s | Line %3d | %-15.15s %c | speed %5u | option %5u | %s | strips %s\n",timestr,scmd->line, animstr,
+    printf("Time %8s | Line %3d | %-15.15s %c | speed %5u | option %5u | %-14.14s %c | strips %s\n",timestr,scmd->line, animstr,
            scmd->direction ? 'R' : 'F',
            scmd->speed, scmd->option,
-           colorstr, maskstr(tmpstr,scmd->stripmask));
+           colorstr, (scmd->palette & COLORFLG ? ' ' : 'P'),
+           maskstr(tmpstr,scmd->stripmask));
 }
 
 
