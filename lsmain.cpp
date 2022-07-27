@@ -29,6 +29,8 @@
 
 #include "playback.h"
 
+#define VERSION "2.01"
+
 extern "C" {
 #include "lstokens.h"
     void yyparse(void);
@@ -288,6 +290,8 @@ int main(int argc,char *argv[])
     double start_cue = 0;
     double end_cue = 0;
     int ch;
+
+    printf("Lightscript version %s\n\n",VERSION);
     
     while ((ch = getopt(argc,argv,"c:vp:s:")) != -1) {
         switch (ch) {
