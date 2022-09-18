@@ -285,7 +285,6 @@ int main(int argc,char *argv[])
     char *playdevice = NULL;
     char *command;
     char *picolight = NULL;
-    int userconfig = 0;
     int cmdnum = 0;
     double start_cue = 0;
     double end_cue = 0;
@@ -297,7 +296,6 @@ int main(int argc,char *argv[])
         switch (ch) {
             case 'c':
                 configfilename = optarg;
-                userconfig = 1;
                 break;
             case 'v':
                 debug = 1;
@@ -343,7 +341,12 @@ int main(int argc,char *argv[])
     script->lss_endcue = end_cue;
 
     if ((cmdnum == CMD_PLAY) || (cmdnum == CMD_MPLAY)) {
-        picolight = findpicolight();
+        // See if we were passed a device to play.
+        if (playdevice != NULL) {
+            picolight = playdevice;
+        } else {
+            picolight = findpicolight();
+        }
         if (!picolight) {
             exit(1);
         }
