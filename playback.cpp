@@ -90,11 +90,8 @@ static void play_events(LSScript_t *script,LSSchedule *sched)
     int idx = 0;
     int events = sched->size();
     double start_time;
-    schedcmd_t *cmd;
 
     start_time = current_time(script) + start_offset;
-
-    cmd = sched->getAt(idx);
 
     if (script->lss_startcue != 0.0) {
         while (idx < events) {

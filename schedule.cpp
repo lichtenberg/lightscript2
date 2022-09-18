@@ -168,7 +168,7 @@ void LSSchedule::insert_do(double baseTime, LSCommand_t *c)
         }
 
         // Create a template schedule command
-        schedcmd_t *scmd = newSchedCmd(baseTime, c);
+        schedcmd_t *scmd = newSchedCmd(baseTime + t, c);
 
         // Fill in the strip mask, since this is a 'do' it works on all listed strips.
         if (c->lsc_strips) {
