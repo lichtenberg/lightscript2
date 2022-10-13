@@ -72,6 +72,13 @@ hexdigit  [0-9A-Fa-f]
 "defpalette"    return tDEFPALETTE;
 "direction"     return tDIRECTION;
 "comment"       return tCOMMENT;
+"physical"      return tPHYSICAL;
+"virtual"       return tVIRTUAL;
+"pstrip"        return tPSTRIP;
+"vstrip"        return tVSTRIP;
+"channel"       return tCHANNEL;
+"type"          return tTYPE;
+"start"         return tSTART;
 "{"             return '{';
 "}"             return '}';
 "["             return '[';

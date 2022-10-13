@@ -85,6 +85,13 @@ static tokenmap_t tokenNames[] = {
     {tDEFSTRIP,"defstrip"},
     {tDEFANIM,"defanim"},
     {tCOMMENT,"comment"},
+    {tPHYSICAL,"physical"},
+    {tVIRTUAL,"virtual"},
+    {tVSTRIP,"vstrip"},
+    {tPSTRIP,"pstrip"},
+    {tCHANNEL,"channel"},
+    {tTYPE,"type"},
+    {tSTART,"start"},
     {YYEMPTY, NULL}
 };
 

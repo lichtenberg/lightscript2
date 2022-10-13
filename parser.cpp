@@ -272,6 +272,8 @@ LSCommand_t *LSParser::parseScriptCmd()
         tDEFSTRIP,
         tDEFCOLOR,
         tDEFPALETTE,
+        tPHYSICAL,
+        tVIRTUAL,
         ENDOFLIST};
     lstoktype_t tt;
     bool save = false;
@@ -370,6 +372,14 @@ LSCommand_t *LSParser::parseScriptCmd()
             script->macroTable->addMacro(id, idlist, cmdlist);
             break;
 
+        case tPHYSICAL:
+            parsePhysicalStrips();
+            break;
+            
+        case tVIRTUAL:
+            parseVirtualStrips();
+            break;
+
         default:
             tokenStream->error("Should not happen");
             break;
@@ -386,6 +396,111 @@ LSCommand_t *LSParser::parseScriptCmd()
     return cmd;
 }
 
+void LSParser::parseOnePhysicalStrip(void)
+{
+    lstoktype_t terminals[] = {
+        tCHANNEL,
+        tTYPE,
+        tCOUNT,
+        ENDOFLIST};
+    lstoktype_t tt;
+    
+    tokenStream->match(tPSTRIP);
+
+    tokenStream->match(tIDENT);
+
+    while (tokenStream->current() != CHARTOKEN(';')) {
+        if (tokenStream->predict(terminals) == false) {
+            tokenStream->error("Expected physical strip attribute (%s) but found '%s'",tokenStream->setStr(terminals), tokenStream->tokenStr(tokenStream->current()));
+
+        }
+        tt = tokenStream->advance();
+
+        switch (tt) {
+            case tCHANNEL:
+                tokenStream->matchIdent();
+                break;
+            case tTYPE:
+                tokenStream->matchIdent();
+                break;
+            case tCOUNT:
+                tokenStream->matchInt();
+                break;
+            default:
+                tokenStream->error("Should not happen");
+                break;
+        }
+    }
+
+    tokenStream->match(CHARTOKEN(';'));
+}
+
+void LSParser::parseOneVirtualStrip(void)
+{
+    lstoktype_t terminals[] = {
+        tPSTRIP,
+        tSTART,
+        tCOUNT,
+        tREVERSE,
+        ENDOFLIST};
+    lstoktype_t tt;
+    
+    tokenStream->match(tVSTRIP);
+
+    tokenStream->match(tIDENT);
+
+    while (tokenStream->current() != CHARTOKEN(';')) {
+        if (tokenStream->predict(terminals) == false) {
+            tokenStream->error("Expected virtual strip attribute (%s) but found '%s'",tokenStream->setStr(terminals), tokenStream->tokenStr(tokenStream->current()));
+        }
+
+        tt = tokenStream->advance();
+
+        switch (tt) {
+            case tPSTRIP:
+                tokenStream->matchIdent();
+                break;
+            case tSTART:
+                tokenStream->matchInt();
+                break;
+            case tCOUNT:
+                tokenStream->matchInt();
+                break;
+            case tREVERSE:
+                break;
+            default:
+                tokenStream->error("Should not happen");
+                break;
+        }
+        
+    }
+
+    tokenStream->match(CHARTOKEN(';'));
+
+}
+
+void LSParser::parsePhysicalStrips(void)
+{
+    tokenStream->match(CHARTOKEN('{'));
+
+    while (tokenStream->current() != CHARTOKEN('}')) {
+        parseOnePhysicalStrip();
+    }
+
+    tokenStream->match(CHARTOKEN('}'));
+}
+
+void LSParser::parseVirtualStrips(void)
+{
+    tokenStream->match(CHARTOKEN('{'));
+
+    while (tokenStream->current() != CHARTOKEN('}')) {
+        parseOneVirtualStrip();
+    }
+
+    tokenStream->match(CHARTOKEN('}'));
+    
+}
 
 void LSParser::parseTopLevel()
 {

@@ -2,7 +2,7 @@
 music "sunny.ac3";
 define STRIP1 as 3;
 define STRIP2 = 3;
-define RINGLETS as [RINGLET1, RINGLET2, RINGLET3];
+defstrip RINGLETS as [RINGLET1, RINGLET2, RINGLET3];
 idle IDLEWHITE;
 defmacro MYMAC {
    idle IDLEBLACK;
@@ -15,7 +15,16 @@ defmacro MYMAC (arg1, arg2) {
 
 at 3.0 on [RINGLETS] do SOUNDPULSE speed 500 reverse;
 
+physical {
+        pstrip RING channel A2 count 30;
+        pstrip PERIMETER1 channel A0 count 60;
+        pstrip PERIMETER2 channel A1 count 60;
+};
 
+virtual {
+        vstrip RING pstrip RING start 30 count 30;
+        vstrip PERIMETER1 pstrip PERIMETER1 start 30 count 30 reverse;
+};
 
 
 
