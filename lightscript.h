@@ -15,6 +15,10 @@
  * lightscript stuff
  */
 
+#define MAXPSTRIPS      16              // Total physical strips
+#define MAXVSTRIPS      128             // Total virtual strips 
+#define MAXSUBSTRIPS    8               // Substrips per virtual strip
+
 typedef enum {
     LSC_UNKNOWN = 0,
     LSC_CASCADE = 1,
@@ -26,6 +30,8 @@ typedef enum {
 #define COLORFLG  0x1000000
 typedef std::vector<std::string> idlist_t;
 typedef std::vector<double> vallist_t;
+
+#include "picoprotocol.h"
 
 typedef struct LSCommand_s {
     // Command type:
@@ -78,6 +84,21 @@ class LSMacroTab;
 class LSStripListTab;
 
 
+
+typedef struct PStrip_s {
+    std::string name;
+    unsigned int idx;
+    uint32_t info;
+} PStrip_t;
+
+typedef struct VStrip_s {
+    std::string name;
+    unsigned int idx;
+    int substripCount;
+    uint32_t substrips[MAXSUBSTRIPS+1];         // Leave one for the sentinel
+} VStrip_t;
+
+
 typedef struct LSScript_s {
     // Global stuff about the script
     std::string lss_idleanimation;
@@ -93,9 +114,15 @@ typedef struct LSScript_s {
 
     // Symbol tables
     LSSymTab *symbolTable;
-    LSSymTab *stripTable;
     LSSymTab *animTable;
     LSSymTab *colorTable;
     LSStripListTab *stripListTable;
     LSMacroTab *macroTable;
+
+    // No need for symbol tables for these because they are fixed in size by the firmware.
+    // Physical Strips.
+    PStrip_t physicalStrips[MAXPSTRIPS];
+    // Virtual Strips
+    int virtualStripCount;
+    VStrip_t virtualStrips[MAXVSTRIPS];
 } LSScript_t;

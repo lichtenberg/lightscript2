@@ -31,4 +31,6 @@ private:
     void parseVirtualStrips(void);
     void parseOnePhysicalStrip(void);
     void parseOneVirtualStrip(void);
+    unsigned int parseOneSubstrip(void);
+    PStrip_t *findPStrip(std::string& name);
 };

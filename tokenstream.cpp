@@ -92,6 +92,7 @@ static tokenmap_t tokenNames[] = {
     {tCHANNEL,"channel"},
     {tTYPE,"type"},
     {tSTART,"start"},
+    {tSUBSTRIP,"substrip"},
     {YYEMPTY, NULL}
 };
 

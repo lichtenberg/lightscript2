@@ -61,3 +61,5 @@ public:
     bool findMacro(std::string name, idlist_t * &args, cmdlist_t * &commands);
     inline int size() { return table.size(); }
 };
+
+

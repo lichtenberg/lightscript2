@@ -1,4 +1,3 @@
-
 #include <vector>
 #include <string>
 #include "lightscript.h"
@@ -339,9 +338,9 @@ LSCommand_t *LSParser::parseScriptCmd()
                     script->stripListTable->addStripList(id,parseIDList());
                     break;
                 default:
-                    // Single strip number
-                    v = tokenStream->matchInt();
-                    script->stripTable->addSym(id,v);
+                    // Single strip number (not allowed anymore)
+                    tokenStream->error("Expected '[' to start a list of strip names, but found %s",tokenStream->tokenStr(tokenStream->current()));
+                    break;
             }
             break;
         case tDEFINE:
@@ -396,6 +395,24 @@ LSCommand_t *LSParser::parseScriptCmd()
     return cmd;
 }
 
+static int channelNameToNum(std::string& idstr)
+{
+    const char *str = idstr.c_str();
+    int port = -1;
+    int chan = -1;
+
+    if ((str[0] == 'a') || (str[0] == 'A')) port = 0;
+    if ((str[0] == 'b') || (str[0] == 'B')) port = 1;
+    if ((str[1] >= '1') && (str[1] <= '8')) chan = str[1] - '1';
+
+    if ((port < 0) || (chan < 0)) {
+        return -1;
+    }
+
+    return (port * 8) + chan;
+}
+
+
 void LSParser::parseOnePhysicalStrip(void)
 {
     lstoktype_t terminals[] = {
@@ -404,27 +421,41 @@ void LSParser::parseOnePhysicalStrip(void)
         tCOUNT,
         ENDOFLIST};
     lstoktype_t tt;
+    int physChannel = -1;
+    int physChanType = 0;               // need enums for RGB, GBR, ...
+    int physCount = -1;
+    std::string physStripName;
+    std::string idstr;
     
     tokenStream->match(tPSTRIP);
 
-    tokenStream->match(tIDENT);
+    physStripName = tokenStream->matchIdent();
 
     while (tokenStream->current() != CHARTOKEN(';')) {
         if (tokenStream->predict(terminals) == false) {
-            tokenStream->error("Expected physical strip attribute (%s) but found '%s'",tokenStream->setStr(terminals), tokenStream->tokenStr(tokenStream->current()));
+            tokenStream->error("Physical strip %s: Expected strip attribute (%s) but found '%s'",
+                               physStripName.c_str(),
+                               tokenStream->setStr(terminals), tokenStream->tokenStr(tokenStream->current()));
 
         }
         tt = tokenStream->advance();
 
         switch (tt) {
             case tCHANNEL:
-                tokenStream->matchIdent();
+                idstr = tokenStream->matchIdent();
+                physChannel = channelNameToNum(idstr);
+                if (physChannel < 0) {
+                    tokenStream->error("Physical strip %s: Invalid channel name specified: %s, must be A1..A8 or B1..B8",
+                                       physStripName.c_str(), idstr.c_str());
+                }
                 break;
             case tTYPE:
-                tokenStream->matchIdent();
+                idstr = tokenStream->matchIdent();
+                physChanType = 0;
+                // Ignore this for now
                 break;
             case tCOUNT:
-                tokenStream->matchInt();
+                physCount = tokenStream->matchInt();
                 break;
             default:
                 tokenStream->error("Should not happen");
@@ -433,40 +464,71 @@ void LSParser::parseOnePhysicalStrip(void)
     }
 
     tokenStream->match(CHARTOKEN(';'));
+
+    if (physCount < 0) {
+        tokenStream->error("Physical strip %s: Numnber of LEDs for strip was not specified", physStripName.c_str());
+    }
+    if (physChanType < 0) {
+        tokenStream->error("Physical strip %s: Strip type was not specified", physStripName.c_str());
+    }
+    if (physChannel < 0) {
+        tokenStream->error("Physical strip %s: channel ID was not specified", physStripName.c_str());
+    }
+
+
+    unsigned int encodedStrip = ENCODEPSTRIP(physChannel, physChanType, physCount);
+
+    // Add this to the physical strip table.
+    script->physicalStrips[physChannel].info = encodedStrip;
+    script->physicalStrips[physChannel].name = physStripName;
 }
 
-void LSParser::parseOneVirtualStrip(void)
+PStrip_t * LSParser::findPStrip(std::string& name)
+{
+    int idx;
+
+    for (idx = 0; idx < MAXPSTRIPS; idx++) {
+        if (script->physicalStrips[idx].name == name) {
+            return &(script->physicalStrips[idx]);
+        }
+    }
+    return NULL;
+}
+
+
+unsigned int LSParser::parseOneSubstrip(void)
 {
     lstoktype_t terminals[] = {
-        tPSTRIP,
         tSTART,
         tCOUNT,
         tREVERSE,
         ENDOFLIST};
     lstoktype_t tt;
-    
-    tokenStream->match(tVSTRIP);
+    std::string idstr;
+    int subStart = -1;
+    int subCount = -1;
+    int subFlags = 0;
+    PStrip_t *pstrip;
 
-    tokenStream->match(tIDENT);
+    tokenStream->match(tSUBSTRIP);
+    idstr = tokenStream->matchIdent();
 
     while (tokenStream->current() != CHARTOKEN(';')) {
         if (tokenStream->predict(terminals) == false) {
-            tokenStream->error("Expected virtual strip attribute (%s) but found '%s'",tokenStream->setStr(terminals), tokenStream->tokenStr(tokenStream->current()));
+            tokenStream->error("Expected substrip attribute (%s) but found '%s'",tokenStream->setStr(terminals), tokenStream->tokenStr(tokenStream->current()));
         }
 
         tt = tokenStream->advance();
 
         switch (tt) {
-            case tPSTRIP:
-                tokenStream->matchIdent();
-                break;
             case tSTART:
-                tokenStream->matchInt();
+                subStart = tokenStream->matchInt();
                 break;
             case tCOUNT:
-                tokenStream->matchInt();
+                subCount = tokenStream->matchInt();
                 break;
             case tREVERSE:
+                subFlags |= SUBSTRIP_REVERSE;
                 break;
             default:
                 tokenStream->error("Should not happen");
@@ -475,6 +537,63 @@ void LSParser::parseOneVirtualStrip(void)
         
     }
 
+    tokenStream->match(CHARTOKEN(';'));
+
+
+    pstrip = findPStrip(idstr);
+    if (pstrip == NULL) {
+        tokenStream->error("Substrip: Invalid physical strip %s",idstr.c_str());
+    }
+
+    // If the start is not specified, it's assumed to be zero (the beginning of the physical strip)
+    if (subStart < 0) {
+        subStart = 0;
+    }
+    // If the length is not specified, it's assumed to be the length of the physical strip
+    if (subCount < 0) {
+        subCount = PSTRIP_COUNT(pstrip->info);
+    }
+
+    unsigned int encodedSubstrip =
+        ENCODESUBSTRIP(PSTRIP_CHAN(pstrip->info), subStart, subCount, subFlags);
+
+//    printf("SUBSTRIP: %08X (%s:%d:%d)\n",
+//           encodedSubstrip,
+//           pstrip->name.c_str(), subStart, subCount);
+
+    return encodedSubstrip;
+
+}
+
+void LSParser::parseOneVirtualStrip(void)
+{
+    uint32_t encodedSubstrip;
+    VStrip_t *vstrip;
+
+    if (script->virtualStripCount >= MAXVSTRIPS) {
+        tokenStream->error("Maximium number of virtual strips have been defined (%u)", MAXVSTRIPS);
+    }
+
+    vstrip = &(script->virtualStrips[script->virtualStripCount]);
+    script->virtualStripCount++;
+    
+    tokenStream->match(tVSTRIP);
+
+    vstrip->name = tokenStream->matchIdent();
+
+    tokenStream->match(CHARTOKEN('{'));
+
+    // Grab all the sub strips
+    while (tokenStream->current() != CHARTOKEN('}')) {
+        encodedSubstrip = parseOneSubstrip();
+        if (vstrip->substripCount >= MAXSUBSTRIPS) {
+            tokenStream->error("Maximium number of substrips for %s have been defined (%u)", vstrip->name.c_str(),MAXVSTRIPS);
+        }
+        vstrip->substrips[vstrip->substripCount] = encodedSubstrip;
+        vstrip->substripCount++;
+    }
+
+    tokenStream->match(CHARTOKEN('}'));
     tokenStream->match(CHARTOKEN(';'));
 
 }

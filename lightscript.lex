@@ -79,6 +79,7 @@ hexdigit  [0-9A-Fa-f]
 "channel"       return tCHANNEL;
 "type"          return tTYPE;
 "start"         return tSTART;
+"substrip"      return tSUBSTRIP;
 "{"             return '{';
 "}"             return '}';
 "["             return '[';

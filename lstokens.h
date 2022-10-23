@@ -53,6 +53,7 @@ typedef enum {
     tCHANNEL = 292,
     tTYPE = 293,
     tSTART = 294,
+    tSUBSTRIP = 295,
 } lstoktype_t;
 
 #define CHARTOKEN(x) ((lstoktype_t) (x))

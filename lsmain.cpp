@@ -29,7 +29,7 @@
 
 #include "playback.h"
 
-#define VERSION "2.01"
+#define VERSION "2.2"
 
 extern "C" {
 #include "lstokens.h"
@@ -127,6 +127,54 @@ static bool tokenize_file(char *filename)
     return true;
 }
 
+static void script_showpstrips(LSScript_t *script)
+{
+    int idx;
+    char chName;
+    int chNum;
+    
+    printf("Physical strip table:\n");
+    for (idx = 0; idx < MAXPSTRIPS; idx++) {
+        PStrip_t *strip = &script->physicalStrips[idx];
+        if (strip->name == "") continue;
+
+        chName = "AB"[(PSTRIP_CHAN(strip->info) >> 3) & 1];
+        chNum = (PSTRIP_CHAN(strip->info) & 0x7) + 1;
+        printf("  %-20.20s  channel=%c%d type=%u count=%u\n",
+               strip->name.c_str(),
+               chName,chNum,
+               PSTRIP_TYPE(strip->info),
+               PSTRIP_COUNT(strip->info));
+    }
+}
+
+static const char *stripChars = "1234567890ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
+static void script_showvstrips(LSScript_t *script)
+{
+    int idx;
+    int ss;        
+    VStrip_t *vstrip;
+
+    printf("\nVirtual strip table (%u entries):\n",script->virtualStripCount);
+
+    for (idx = 0; idx < script->virtualStripCount; idx++) {
+        vstrip = &script->virtualStrips[idx];
+        printf("  %-20.20s '%c'  ",vstrip->name.c_str(), stripChars[idx]);
+        for (ss = 0; ss < vstrip->substripCount; ss++) {
+            uint32_t chan = SUBSTRIP_CHAN(vstrip->substrips[ss]);
+            uint32_t start = SUBSTRIP_START(vstrip->substrips[ss]);
+            uint32_t count = SUBSTRIP_COUNT(vstrip->substrips[ss]);
+            uint32_t reverse = SUBSTRIP_DIRECTION(vstrip->substrips[ss]);
+            printf("[%c%u (%u,%u) %c]  ",
+                   "AB"[(chan >> 3) & 1], chan & 7,
+                   start, count,
+                   reverse ? 'R' : 'F');
+        }
+        printf("\n");
+    }
+}
+
+
 static void script_stats(LSScript_t *script)
 {
     const char *music = script->lss_music.c_str() ? script->lss_music.c_str() : "not_set";
@@ -136,11 +184,14 @@ static void script_stats(LSScript_t *script)
     printf("Music file:          %s\n",music);
     printf("Idle animation:      %s\n",idleanim);
     printf("Symbol table size:   %d\n",script->symbolTable->size());
-    printf("Strip table size:    %d\n",script->stripTable->size());
     printf("Color table size:    %d\n",script->colorTable->size());
     printf("Anim table size:     %d\n",script->animTable->size());
     printf("StripList tab size:  %d\n",script->stripListTable->size());
     printf("Macro list size:     %d\n",script->macroTable->size());
+    printf("\n");
+
+    script_showpstrips(script);
+    script_showvstrips(script);
 
     printf("\n\n\n");
 }
@@ -155,12 +206,21 @@ static LSScript_t *do_parse(void)
     LSParser *parser = new LSParser(&tokenStream, script);
 
     script->symbolTable = new LSSymTab("symbol");
-    script->stripTable = new LSSymTab("strips");
     script->animTable = new LSSymTab("animations");
     script->colorTable = new LSSymTab("colors");
     script->stripListTable = new LSStripListTab;
     script->macroTable = new LSMacroTab;
 
+    // Initialize the index values from the pstrip and vstrip tables,
+    // not sure if we really need it.
+    for (unsigned int idx = 0; idx < MAXPSTRIPS; idx++) {
+            script->physicalStrips[idx].idx = idx;
+        }
+    for (unsigned int idx = 0; idx < MAXVSTRIPS; idx++) {
+            script->virtualStrips[idx].idx = idx;
+        }
+
+    // Go parse the file.
     if (parser->parse() == 0) {
         printf("File parsed successfully\n");
         script_stats(script);
@@ -362,14 +422,23 @@ int main(int argc,char *argv[])
     sigfillset(&sigint_action.sa_mask);
     sigaction(SIGINT, &sigint_action, NULL);
 
+    if ((cmdnum == CMD_MPLAY) || (cmdnum == CMD_PLAY)) {
+        play_opendevice(picolight);
+        play_init(script, schedule);
+        play_initdevice(script);
+    }
+
+    switch (cmdnum) {
+        case CMD_PLAY:
+            play_script(0);
+            break;
+        case CMD_MPLAY:
+            play_script(1);
+            break;
+        default:
+            break;
+    }
     
-    if (cmdnum == CMD_PLAY) {
-        play_init(script, schedule);
-        play_script(picolight, 0);
-    } else if (cmdnum == CMD_MPLAY) {
-        play_init(script, schedule);
-        play_script(picolight, 1);
-        }
 
     return 0;
 }

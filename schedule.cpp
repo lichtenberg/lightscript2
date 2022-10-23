@@ -26,6 +26,19 @@ static const char *lsctypes[] = {
 };
 #endif
 
+int LSSchedule::findStrip(std::string name)
+{
+    int i;
+
+    for (i = 0; i < script->virtualStripCount; i++) {
+        if (name == script->virtualStrips[i].name) {
+            return i;
+        }
+    }
+    return -1;
+}
+
+
 schedcmd_t *LSSchedule::newSchedCmd(double baseTime, LSCommand_t *cmd)
 {
     // Create a new empty schedule record.
@@ -64,7 +77,7 @@ void LSSchedule::stripVec1(LSCommand_t *c, stripvec_t *vec, idlist_t *list)
                 stripVec1(c, vec,sublist);
                 nestLevel--;
             }
-        } else if (script->stripTable->findSym(*i, v)) {
+        } else if ( (v = findStrip(*i)) >= 0) {
             vec->push_back(v);
         } else {
             printf("[Line %d]: Could not find strip name: '%s'\n",c->lsc_line, i->c_str());
@@ -85,12 +98,16 @@ stripvec_t *LSSchedule::stripVec(LSCommand_t *c, idlist_t *list)
 
 
 
-uint64_t LSSchedule::stripMask(LSCommand_t *c, idlist_t *list)
+void LSSchedule::stripMask(LSCommand_t *c, idlist_t *list,uint32_t *mask)
 {
-    uint64_t mask = 0LL;
     int v;
     idlist_t::iterator i;
     idlist_t *sublist;
+
+    if (nestLevel == 0) {
+        // Oh how terribly gross.
+        for (v = 0; v < MAXVSTRIPS/32; v++) mask[v] = 0;
+    }
 
     nestLevel++;
 
@@ -100,10 +117,10 @@ uint64_t LSSchedule::stripMask(LSCommand_t *c, idlist_t *list)
             if (nestLevel > 8) {
                 printf("[Line %d]: Strip lists nested too deep, are you putting a list in itself?\n", c ? c->lsc_line : 0);
             } else {
-                mask |= stripMask(c, sublist);
+                stripMask(c, sublist, mask);
             }
-        } else if (script->stripTable->findSym(*i, v)) {
-            mask |= 1LL << ((uint64_t) v);
+        } else if ((v = findStrip(*i)) >= 0) {
+            mask[v/32] |= 1UL << (((uint32_t) v) & 31);
         } else {
             printf("[Line %d]: Could not find strip name: '%s'\n",c ? c->lsc_line : 0, i->c_str());
             throw -1;
@@ -111,8 +128,6 @@ uint64_t LSSchedule::stripMask(LSCommand_t *c, idlist_t *list)
     }
 
     nestLevel--;
-
-    return mask;
 }
 
 void LSSchedule::setAnimation(LSCommand_t *cmd, schedcmd_t *scmd)
@@ -174,7 +189,7 @@ void LSSchedule::insert_do(double baseTime, LSCommand_t *c)
         // Fill in the strip mask, since this is a 'do' it works on all listed strips.
         if (c->lsc_strips) {
             nestLevel = 0;
-            scmd->stripmask = stripMask(c,c->lsc_strips);
+            stripMask(c,c->lsc_strips,scmd->stripmask);
         }
 
         // Set the animation
@@ -199,7 +214,11 @@ void LSSchedule::insert_cascade(double baseTime, LSCommand_t *c)
         schedcmd_t *scmd = newSchedCmd(baseTime, c);
         setAnimation(c,scmd);
         setColor(c, scmd);
-        scmd->stripmask = 1LL << ((uint64_t) *s);
+        for (int midx = 0; midx < MAXVSTRIPS/32; midx++) {
+            scmd->stripmask[midx] = 0;
+        }
+        uint32_t stripID = *s;
+        scmd->stripmask[stripID/32] = 1UL << (stripID & 31);
         scmd->time += c->opt_delay * (double) i;
 
         // Place in the final schedule.
@@ -347,7 +366,7 @@ void LSSchedule::printSchedEntry(schedcmd_t *scmd)
                scmd->direction ? 'R' : 'F',
                scmd->speed, scmd->option,
                colorstr, (scmd->palette & COLORFLG ? ' ' : 'P'),
-               maskstr(tmpstr,scmd->stripmask));
+               maskstr(tmpstr,(uint64_t)(scmd->stripmask[0])));  // XXX FIX ME XXX
     }
 }
 

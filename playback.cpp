@@ -52,43 +52,207 @@ static double current_time(LSScript_t *script)
     return ((double) (tv.tv_sec - epoch)) + ((double)(tv.tv_usec)/1000000.0);
 }
 
-#define LSCMD_ANIMATE           0
-#define LSCMD_BRIGHTNESS        1
 
-typedef struct __attribute__((packed)) lsmessage_s {
-    uint8_t     ls_sync[2];
-    uint8_t     ls_command;
-    uint8_t     ls_reserved;
-    uint16_t    ls_anim;
-    uint16_t    ls_speed;
-    uint16_t    ls_option;
-    uint32_t    ls_color;
-    uint32_t    ls_strips;
-} lsmessage_t;
+static int send_command(lsmessage_t *msg)
+{
+    uint8_t sync[2];
+    int txlen;
 
-static void send_animate(uint32_t strips, uint16_t anim,  uint16_t speed, uint16_t option, uint32_t color)
+    if (device <= 0) {
+        return -1;
+    }
+
+    sync[0] = 0x02;
+    sync[1] = 0xAA;
+    if (write(device, sync, sizeof(sync)) != sizeof(sync)) {
+        perror("Write Error to Picolight [sync]");
+        exit(1);
+    }
+
+    txlen = LSMSG_HDRSIZE + msg->ls_length;
+
+    if (write(device, msg, txlen) != txlen) {
+        perror("Write Error to Picolight [cmd]");
+        exit(1);
+    }
+
+    return 0;
+}
+
+static int readdata(int device, uint8_t *buf, int len)
+{
+    int res;
+    int ttl = 0;
+
+    while (len > 0) {
+        res = read(device, buf, len);
+        if (res <= 0) {
+            printf("Read error from PicoLight: %d\n",res);
+            exit(1);
+        }
+        buf += res;
+        len -= res;
+        ttl += res;
+    }
+
+    return ttl;
+}
+
+
+#define STATE_SYNC1 0
+#define STATE_SYNC2 1
+static int recv_response(lsmessage_t *msg)
+{
+    uint8_t b;
+    int res;
+    int reading = 1;
+    int state = STATE_SYNC1;
+
+    if (device <= 0) {
+        return -1;
+    }
+
+    #if 0
+    for (;;) {
+        if (readdata(device,&b,1) == 1) { printf("%02X ",b); fflush(stdout);}
+        else {
+            printf("read error\n");
+            exit(1);
+        }
+    }
+    #endif
+
+    while (reading) {
+        if (readdata(device,&b,1) < 1) {
+            printf("Read error from Picolight [sync]\n");
+            exit(1);
+        }
+        switch (state) {
+            case STATE_SYNC1:
+                if (b == 0x02) {
+                    state = STATE_SYNC2;
+                }
+                break;
+            case STATE_SYNC2:
+                if (b == 0xAA) {
+                    reading = 0;
+                } else {
+                    state = STATE_SYNC1;
+                }
+        }
+    }
+
+    memset(msg,0,sizeof(lsmessage_t));
+
+    if (readdata(device,(uint8_t *) msg,LSMSG_HDRSIZE) != LSMSG_HDRSIZE) {
+        printf("Read error from Picolight [hdr]\n");
+            exit(1);
+    }
+
+    int rxlen = msg->ls_length;
+
+    if (rxlen != 0) {
+        if ((res = readdata(device,(uint8_t *) &(msg->info), rxlen)) != rxlen) {
+            printf("Read error from Picolight [payload] %d\n",res);
+            exit(1);
+        }
+    }
+
+    return 0;
+            
+}
+
+static void check_version(void)
 {
     lsmessage_t msg;
 
-    if (device <= 0) {
-        return;
+    msg.ls_command = LSCMD_VERSION;
+    msg.ls_length = 0;
+
+    send_command(&msg);
+    recv_response(&msg);
+
+    printf("Protocol version: %u     Firmware Version %u.%u.%u\n",
+           msg.info.ls_version.lv_protocol,
+           msg.info.ls_version.lv_major,
+           msg.info.ls_version.lv_minor,
+           msg.info.ls_version.lv_eco);
+}
+
+static void send_animate(uint32_t *strips, uint16_t anim,  uint16_t speed, uint16_t option, uint32_t color)
+{
+    lsmessage_t msg;
+
+    memset(&msg,0,sizeof(msg));
+
+    for (int i = 0; i < MAXVSTRIPS/32; i++) {
+        msg.info.ls_animate.la_strips[i] = strips[i];
     }
 
-    msg.ls_sync[0] = 0x02;
-    msg.ls_sync[1] = 0xAA;
-    msg.ls_strips = strips;
-    msg.ls_anim = anim;
-    msg.ls_speed = speed;
-    msg.ls_option = option;
-    msg.ls_color = color;
-    msg.ls_reserved = 0;
+    msg.info.ls_animate.la_anim = anim;
+    msg.info.ls_animate.la_speed = speed;
+    msg.info.ls_animate.la_option = option;
+    msg.info.ls_animate.la_color = color;
+    msg.ls_length = sizeof(lsanimate_t);
     msg.ls_command = LSCMD_ANIMATE;
 
-    if (write(device, &msg, sizeof(msg)) != sizeof(msg)) {
-        perror("Write Error to Picolight");
-        exit(1);
-    }
+    send_command(&msg);
 }
+
+static void upload_config(LSScript_t *script)
+{
+    lsmessage_t txMessage;
+    lsmessage_t rxMessage;
+    int i;
+
+    printf("Retting panel\n");
+    // Send a RESET command
+    memset(&txMessage,0,sizeof(txMessage));
+    txMessage.ls_command = LSCMD_RESET;
+    txMessage.ls_length = 0;
+    send_command(&txMessage);
+    recv_response(&rxMessage);
+
+    printf("Sending physical strips\n");
+    // Send over the physical strips
+    for (i = 0; i < MAXPSTRIPS; i++) {
+        uint32_t info = script->physicalStrips[i].info;
+        if (PSTRIP_COUNT(info) > 0) {
+            memset(&txMessage,0,sizeof(txMessage));
+            txMessage.ls_command = LSCMD_SETPSTRIP;
+            txMessage.ls_length = sizeof(lspstrip_t);
+            txMessage.info.ls_pstrip.lp_pstrip = info;
+            send_command(&txMessage);
+            recv_response(&rxMessage);
+        }
+    }
+            
+
+    printf("Sending virtual strips\n");
+    // Send over the logical strips
+    for (i = 0; i < script->virtualStripCount; i++) {
+        VStrip_t *vstrip = &script->virtualStrips[i];
+        memset(&txMessage,0,sizeof(txMessage));
+        txMessage.ls_command = LSCMD_SETVSTRIP;
+        txMessage.ls_length = sizeof(lsvstrip_t);
+        txMessage.info.ls_vstrip.lv_idx = i;
+        txMessage.info.ls_vstrip.lv_count = vstrip->substripCount;
+        memcpy(txMessage.info.ls_vstrip.lv_substrips,
+               vstrip->substrips,
+               vstrip->substripCount * sizeof(uint32_t));
+        send_command(&txMessage);
+        recv_response(&rxMessage);
+    }
+            
+    printf("Initializing panel with new config\n");
+    // Send the INIT command
+    memset(&txMessage,0,sizeof(txMessage));
+    txMessage.ls_command = LSCMD_INIT;
+    txMessage.ls_length = 0;
+    send_command(&txMessage);
+    recv_response(&rxMessage);
+}
+
 
 static void play_events(LSScript_t *script,LSSchedule *sched)
 {
@@ -222,11 +386,11 @@ static void play_music(LSScript_t *script,LSSchedule *sched)
 static void play_idle(void)
 {
     int v;
-    uint64_t mask = 0;
+    uint32_t mask[MAXVSTRIPS/32];
 
     if (curscript->lss_idlestrips) {
         try {
-            mask = cursched->stripMask(NULL,curscript->lss_idlestrips);
+            cursched->stripMask(NULL,curscript->lss_idlestrips,mask);
         } catch (int e) {
             return;
         }
@@ -234,7 +398,7 @@ static void play_idle(void)
 
     if (curscript->lss_idleanimation != "") {
         if (curscript->animTable->findSym(curscript->lss_idleanimation,v)) {
-            send_animate((uint32_t) mask, v, 500, 0, 0);
+            send_animate(mask, v, 500, 0, 0);
         } else {
             printf("Warning: idle animation '%s' is not valid\n",curscript->lss_idleanimation.c_str());
         }
@@ -244,28 +408,54 @@ static void play_idle(void)
 
 static void all_off(void)
 {
+    uint32_t mask[MAXVSTRIPS/32];
+
+    memset(mask,0,sizeof(mask));
+    mask[0] = 0x7FFFFFFF;
+    
     // Send "OFF" to everyone, then wait 200ms.
     if (offAnim) {
-        send_animate(0x7FFFFFFF, offAnim, 500, 0, 0);
+        send_animate(mask, offAnim, 500, 0, 0);
         msleep(200);
     } 
 }
 
-
-void play_script(char *devname, int how)
+int play_opendevice(char *devname)
 {
-    play_please_stop = false;
-
     if (devname != NULL) {
         device = open(devname,O_RDWR);
 
         if (device < 0) {
             fprintf(stderr,"Error: Could not open Picolight device %s: %s\n",devname, strerror(errno));
-            return;
+            return -1;
         }
     } else {
         device = -1;             // No device, just pretend.
     }
+
+    return 0;
+}
+
+void play_closedevice(void)
+{
+    if (device > 0) {
+        close(device);
+        device = -1;
+    }
+}
+
+void play_initdevice(LSScript_t *script)
+{
+    check_version();
+    upload_config(script);
+//    exit(1);
+}
+
+
+
+void play_script(int how)
+{
+    play_please_stop = false;
 
     all_off();
     play_idle();
