@@ -14,7 +14,7 @@ class LSToken {
 
 public:
     LSToken();
-    LSToken(lstoktype_t tt, int lineno, lstoken_t *tok);
+    LSToken(lstoktype_t tt, char *filename, int lineno, lstoken_t *tok);
     ~LSToken();
 
 
@@ -23,6 +23,7 @@ private:
     double fpval;
     int intval;
     std::string strval;
+    char *filename;
     int lineno;
 
 public:
@@ -31,7 +32,7 @@ public:
     inline std::string getString(void) { return strval; }
     inline int getInt(void) { return intval; }
     inline int getLine(void) { return lineno; }
-
+    inline char *getFileName(void) { return filename; }
 };
 
 /*  *********************************************************************
@@ -57,6 +58,7 @@ public:
     bool predict(lstoktype_t set[]);
     lstoktype_t current(void);
     int currentLine(void);
+    char *currentFile(void);
     void error(const char *, ...);
     bool get(LSToken& tok);
     const char *tokenStr(lstoktype_t tt);

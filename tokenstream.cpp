@@ -15,11 +15,12 @@ LSToken::LSToken()
     strval = "";
 }
 
-LSToken::LSToken(lstoktype_t tt, int lno, lstoken_t *tok)
+LSToken::LSToken(lstoktype_t tt, char *fname, int lno, lstoken_t *tok)
 {
     LSToken();
 
     type = tt;
+    filename = fname;
     lineno = lno;
 
     switch (tt) {
@@ -148,7 +149,7 @@ void LSTokenStream::error(const char *str, ...)
 {
     va_list ap;
 
-    printf("[Line %d] ",currentLine());
+    printf("[%s:Line %d] ",currentFile(),currentLine());
     va_start(ap,str);
     vprintf(str,ap);
     va_end(ap);
@@ -303,4 +304,15 @@ int LSTokenStream::currentLine(void)
 
     // Pick off the first element and return its type.
     return tokens.front().getLine();
+}
+
+char *LSTokenStream::currentFile(void)
+{
+    // If the stream is empty just return EOF
+    if (tokens.empty()) {
+        return 0;
+    }
+
+    // Pick off the first element and return its type.
+    return tokens.front().getFileName();
 }

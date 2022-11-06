@@ -118,7 +118,7 @@ static bool tokenize_file(char *filename)
 
     // Call the lexer and read all the tokens into the token stream.
     while ((t = (lstoktype_t) yylex())) {
-        LSToken tok = LSToken(t, yylineno, &yylval);
+        LSToken tok = LSToken(t, filename, yylineno, &yylval);
         tokenStream.add(tok);
     }
 
@@ -230,8 +230,14 @@ static LSScript_t *do_parse(void)
     return NULL;
 }
 
-static bool read_and_parse(char *configfilename, char *scriptfilename)
+static bool read_and_parse(char *panelconfigfilename, char *configfilename, char *scriptfilename)
 {
+    if (panelconfigfilename) {
+        if (!tokenize_file(panelconfigfilename)) {
+            return false;
+        }
+    }
+
     if (configfilename) {
         if (!tokenize_file(configfilename)) {
             return false;
@@ -301,9 +307,10 @@ static int parse_range(char *str, double *start, double *end)
 
 static void usage(void)
 {
-    fprintf(stderr,"Usage: lightscript [-c configfile] [-v] [-p device] command script-file\n\n");
-    fprintf(stderr,"    -c configfile       Specifies the name of a configuration file\n");
-    fprintf(stderr,"    -p device           Specifies the name of the Arduino device\n");
+    fprintf(stderr,"Usage: lightscript [-p panelconfig] [-c configfile] [-v] [-d device] command script-file\n\n");
+    fprintf(stderr,"    -p configfile       Specifies the name of a panel configuration file, default 'panel.cfg'\n");
+    fprintf(stderr,"    -c configfile       Specifies the name of a configuration file, default 'lightscript.cfg'\n");
+    fprintf(stderr,"    -d device           Specifies the name of the PicoLight device\n");
     fprintf(stderr,"    -s time             Starting time for playback\n");
     fprintf(stderr,"    -v                  Print diagnostic output\n");
     fprintf(stderr,"\n");
@@ -341,6 +348,7 @@ int main(int argc,char *argv[])
 {
 
     char *configfilename = (char *) "lightscript.cfg";
+    char *panelconfigfilename = (char *) "panel.cfg";
     char *scriptfilename = NULL;
     char *playdevice = NULL;
     char *command;
@@ -352,15 +360,18 @@ int main(int argc,char *argv[])
 
     printf("Lightscript version %s\n\n",VERSION);
     
-    while ((ch = getopt(argc,argv,"c:vp:s:")) != -1) {
+    while ((ch = getopt(argc,argv,"c:p:vd:s:")) != -1) {
         switch (ch) {
             case 'c':
                 configfilename = optarg;
                 break;
+            case 'p':
+                panelconfigfilename = optarg;
+                break;
             case 'v':
                 debug = 1;
                 break;
-            case 'p':
+            case 'd':
                 playdevice = optarg;
                 break;
             case 's':
@@ -392,7 +403,7 @@ int main(int argc,char *argv[])
     }
 
     // Read and parse the file, bail if we can't do it.
-    if (read_and_parse(configfilename, scriptfilename) == false) {
+    if (read_and_parse(panelconfigfilename, configfilename, scriptfilename) == false) {
         exit(1);
     }
 
