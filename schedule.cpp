@@ -1,5 +1,6 @@
 #include <vector>
 #include <string>
+#include <assert.h>
 #include "schedule.hpp"
 #include "symtab.hpp"
 
@@ -312,11 +313,11 @@ void LSSchedule::addSched(schedcmd_t *scmd)
     
 }
 
-static void fmttime(char *dest, double t)
+static void fmttime(char *dest, size_t len, double t)
 {
     unsigned int minutes = (int) (t / 60.0);
     double seconds = (t - ((double) minutes)*60.0);
-    sprintf(dest,"%2u:%05.02f",
+    snprintf(dest,len,"%2u:%05.02f",
             minutes,seconds);
 }
 #define MAXSTRIPS 31
@@ -339,7 +340,7 @@ void LSSchedule::printSchedEntry(schedcmd_t *scmd)
     char timestr[16];
     std::string name;
 
-    fmttime(timestr,scmd->time);
+    fmttime(timestr,sizeof(tmpstr),scmd->time);
 
     if (scmd->comment) {
         printf("\n");

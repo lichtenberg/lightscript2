@@ -401,6 +401,19 @@ static int channelNameToNum(std::string& idstr)
     int port = -1;
     int chan = -1;
 
+    // It's a PICOLASER channel
+    if ((str[0] == 'l') || (str[0] == 'L') || (str[0] == 'S') || (str[0] == 's')) {
+        if ((str[0] == 'l') || (str[0] == 'L')) {
+            chan = str[1] - '0';
+            return chan;
+        }
+        if ((str[0] == 's') || (str[0] == 'S')) {
+            chan = 10 + (str[1] - '0');
+            if (chan > 11) chan = 11;
+            return chan;
+        }
+    }
+
     if ((str[0] == 'a') || (str[0] == 'A')) port = 0;
     if ((str[0] == 'b') || (str[0] == 'B')) port = 1;
     if ((str[1] >= '1') && (str[1] <= '8')) chan = str[1] - '1';
@@ -451,8 +464,15 @@ void LSParser::parseOnePhysicalStrip(void)
                 break;
             case tTYPE:
                 idstr = tokenStream->matchIdent();
-                physChanType = 0;
-                // Ignore this for now
+                if (strcmp(idstr.c_str(),"LASER") == 0) {
+                    physChanType = PSTRIP_TYPE_LASER;
+                } else if (strcmp(idstr.c_str(),"RGB") == 0) {
+                    physChanType = PSTRIP_TYPE_RGB;
+                } else if (strcmp(idstr.c_str(),"GRB") == 0) {
+                    physChanType = PSTRIP_TYPE_GRB;
+                } else {
+                    tokenStream->error("Physical strip type '%s' not valid, choose RGB, GRB or LASER",idstr.c_str());
+                }
                 break;
             case tCOUNT:
                 physCount = tokenStream->matchInt();

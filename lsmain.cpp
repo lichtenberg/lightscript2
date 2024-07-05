@@ -88,7 +88,7 @@ static char *findpicolight(void)
 
 
     if (devcnt > 0) {
-        sprintf(devname,"/dev/%s",devicenames[picked]);
+        snprintf(devname,sizeof(devname)-1,"/dev/%s",devicenames[picked]);
     }
 
     for (i = 0; i < devcnt; i++) {
@@ -138,8 +138,13 @@ static void script_showpstrips(LSScript_t *script)
         PStrip_t *strip = &script->physicalStrips[idx];
         if (strip->name == "") continue;
 
-        chName = "AB"[(PSTRIP_CHAN(strip->info) >> 3) & 1];
-        chNum = (PSTRIP_CHAN(strip->info) & 0x7) + 1;
+        if (PSTRIP_TYPE(strip->info) == PSTRIP_TYPE_LASER) {
+            chName = 'L';
+            chNum = PSTRIP_CHAN(strip->info);
+        } else {
+            chName = "AB"[(PSTRIP_CHAN(strip->info) >> 3) & 1];
+            chNum = (PSTRIP_CHAN(strip->info) & 0x7) + 1;
+        }
         printf("  %-20.20s  channel=%c%d type=%u count=%u\n",
                strip->name.c_str(),
                chName,chNum,
