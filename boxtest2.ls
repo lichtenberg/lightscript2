@@ -1,0 +1,12 @@
+
+idle IDLEWHITE;
+
+at 0.0 do MOVINGGRADIENT on ULBOX speed 1500;
+at 0.2 do MOVINGGRADIENT on URBOX speed 1500;
+at 0.4 do MOVINGGRADIENT on LRBOX speed 1500;
+at 0.8 do MOVINGGRADIENT on LLBOX speed 1500;
+
+at 5.0 do ON on [SPOKE1, SPOKE3, SPOKE5, SPOKE7] color 0;
+
+at 20.0 do OFF on ALLSTRIPS;
+
