@@ -15,9 +15,9 @@
  * lightscript stuff
  */
 
-#define MAXPSTRIPS      16              // Total physical strips
-#define MAXVSTRIPS      128             // Total virtual strips 
-#define MAXSUBSTRIPS    8               // Substrips per virtual strip
+//#define MAXPSTRIPS      16              // Total physical strips
+//#define MAXVSTRIPS      128             // Total virtual strips 
+//#define MAXSUBSTRIPS    8               // Substrips per virtual strip
 
 typedef enum {
     LSC_UNKNOWN = 0,

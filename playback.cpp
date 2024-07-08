@@ -162,7 +162,7 @@ static int recv_response(lsmessage_t *msg)
             
 }
 
-static void check_version(void)
+void check_version(void)
 {
     lsmessage_t msg;
 
@@ -172,11 +172,11 @@ static void check_version(void)
     send_command(&msg);
     recv_response(&msg);
 
-    printf("Protocol version: %u     Firmware Version %u.%u.%u\n",
+    printf("Protocol version: %u     Firmware Version %u.%u    Hardware %u\n",
            msg.info.ls_version.lv_protocol,
            msg.info.ls_version.lv_major,
            msg.info.ls_version.lv_minor,
-           msg.info.ls_version.lv_eco);
+           msg.info.ls_version.lv_hwtype);
 }
 
 static void send_animate(uint32_t *strips, uint16_t anim,  uint16_t speed, uint16_t option, uint32_t color)
@@ -251,6 +251,76 @@ static void upload_config(LSScript_t *script)
     txMessage.ls_length = 0;
     send_command(&txMessage);
     recv_response(&rxMessage);
+}
+
+
+int env_getenv(char *name, char *val, int vallen)
+{
+    lsmessage_t txMessage;
+    lsmessage_t rxMessage;
+
+    txMessage.ls_command = LSCMD_EEPROM;
+    txMessage.ls_length = sizeof(lseeprom_t);
+    txMessage.info.ls_eeprom.le_subcmd = LSEEPROM_GETENV;
+    strncpy((char *) txMessage.info.ls_eeprom.le_data, name, LSEEPROM_MAXDATA);
+    send_command(&txMessage);
+    recv_response(&rxMessage);
+
+    if (rxMessage.info.ls_eeprom.le_data[0] == 0) {
+        return -1;
+    }
+    strncpy(val, (char *) rxMessage.info.ls_eeprom.le_data, vallen);
+
+    return 0;
+}
+
+int env_setenv(char *name, char *val)
+{
+    lsmessage_t txMessage;
+    lsmessage_t rxMessage;
+
+    txMessage.ls_command = LSCMD_EEPROM;
+    txMessage.ls_length = sizeof(lseeprom_t);
+    txMessage.info.ls_eeprom.le_subcmd = LSEEPROM_SETENV;
+    snprintf((char *) txMessage.info.ls_eeprom.le_data, LSEEPROM_MAXDATA, "%s=%s",name,val);
+    send_command(&txMessage);
+    recv_response(&rxMessage);
+    return 0;
+}
+
+int env_listenv(char *val, int vallen)
+{
+    lsmessage_t txMessage;
+    lsmessage_t rxMessage;
+
+    txMessage.ls_command = LSCMD_EEPROM;
+    txMessage.ls_length = sizeof(lseeprom_t);
+    txMessage.info.ls_eeprom.le_subcmd = LSEEPROM_PRINTENV;
+    txMessage.info.ls_eeprom.le_data[0] = 0;
+    send_command(&txMessage);
+    recv_response(&rxMessage);
+
+    if (rxMessage.info.ls_eeprom.le_data[0] == 0) {
+        return -1;
+    }
+    strncpy(val, (char *) rxMessage.info.ls_eeprom.le_data, vallen);
+
+    return 0;
+}
+
+int env_eraseall(void)
+{
+    lsmessage_t txMessage;
+    lsmessage_t rxMessage;
+
+    txMessage.ls_command = LSCMD_EEPROM;
+    txMessage.ls_length = sizeof(lseeprom_t);
+    txMessage.info.ls_eeprom.le_subcmd = LSEEPROM_ERASEALL;
+    txMessage.info.ls_eeprom.le_data[0] = 0;
+    send_command(&txMessage);
+    recv_response(&rxMessage);
+
+    return 0;
 }
 
 
@@ -448,7 +518,6 @@ void play_initdevice(LSScript_t *script)
 {
     check_version();
     upload_config(script);
-//    exit(1);
 }
 
 

@@ -1,9 +1,18 @@
+#ifndef _PICOPROTOCOL_H_
+#define _PICOPROTOCOL_H_
+
+#define PICOLIGHT_PROTOCOL_VERSION      2
+
+// Board types
+
+#define PICOHW_TYPE_PICOLIGHT   0
+#define PICOHW_TYPE_PICOLASER   1
 
 // Constants shared with the firmware
 
 #define MAXPSTRIPS      16
 #define MAXVSTRIPS      128
-#define MAXSUBSTRIPS    8
+#define MAXSUBSTRIPS    16
 
 #define PSTRIP_TYPE_GRB        0
 #define PSTRIP_TYPE_RGB        1
@@ -46,6 +55,7 @@
 #define LSCMD_SETPSTRIP         0x83            // Set a physical strip
 #define LSCMD_SETVSTRIP         0x84            // Set a virtual strip
 #define LSCMD_INIT              0x85            // Initialize with programmed parameters.
+#define LSCMD_EEPROM            0x86            // EEPROM
 
 typedef struct __attribute__((packed)) lsanimate_s {
     uint16_t    la_anim;
@@ -59,7 +69,7 @@ typedef struct __attribute__((packed)) lsversion_s {
     uint8_t lv_protocol;
     uint8_t lv_major;
     uint8_t lv_minor;
-    uint8_t lv_eco;
+    uint8_t lv_hwtype;
 } lsversion_t;
 
 typedef struct __attribute__((packed)) lsstatus_s {
@@ -76,6 +86,16 @@ typedef struct __attribute__((packed)) lsvstrip_s {
     uint32_t lv_substrips[MAXSUBSTRIPS];
 } lsvstrip_t;
 
+#define LSEEPROM_GETENV 0
+#define LSEEPROM_SETENV 1
+#define LSEEPROM_PRINTENV 2
+#define LSEEPROM_ERASEALL 3
+#define LSEEPROM_MAXDATA 251
+typedef struct __attribute__((packed)) lseeprom_s {
+    uint8_t le_subcmd;
+    uint8_t le_data[LSEEPROM_MAXDATA];
+} lseeprom_t;
+
 #define LSMSG_HDRSIZE   2
 typedef struct __attribute__((packed)) lsmessage_s {
     uint8_t     ls_command;             // command code
@@ -86,6 +106,8 @@ typedef struct __attribute__((packed)) lsmessage_s {
         lsstatus_t ls_status;
         lspstrip_t ls_pstrip;
         lsvstrip_t ls_vstrip;
+        lseeprom_t ls_eeprom;
     } info;
 } lsmessage_t;
 
+#endif

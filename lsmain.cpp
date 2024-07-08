@@ -342,6 +342,10 @@ static void usage(void)
 #define CMD_PLAY        1
 #define CMD_CHECK       2
 #define CMD_MPLAY       3
+#define CMD_SETENV      4
+#define CMD_GETENV      5
+#define CMD_LISTENV     6
+#define CMD_ERASEALL    7
 
 void inthandler(int x)
 {
@@ -359,6 +363,7 @@ int main(int argc,char *argv[])
     char *command;
     char *picolight = NULL;
     int cmdnum = 0;
+    int early_exit = 1;
     double start_cue = 0;
     double end_cue = 0;
     int ch;
@@ -400,11 +405,83 @@ int main(int argc,char *argv[])
     if (strcmp(command,"play") == 0) cmdnum = CMD_PLAY;
     else if (strcmp(command,"check") == 0) cmdnum = CMD_CHECK;
     else if (strcmp(command,"mplay") == 0) cmdnum = CMD_MPLAY;
+    else if (strcmp(command,"setenv") == 0) cmdnum = CMD_SETENV;
+    else if (strcmp(command,"getenv") == 0) cmdnum = CMD_GETENV;
+    else if (strcmp(command,"listenv") == 0) cmdnum = CMD_LISTENV;
+    else if (strcmp(command,"eraseall") == 0) cmdnum = CMD_ERASEALL;
 
     if (cmdnum == 0) {
         fprintf(stderr,"You must specify a command, 'play', 'mplay', or 'check' before the file name\n");
         fprintf(stderr,"\n");
         usage();
+    }
+
+    if ((cmdnum == CMD_PLAY) || (cmdnum == CMD_MPLAY) ||
+        (cmdnum == CMD_SETENV) || (cmdnum == CMD_GETENV) || (cmdnum == CMD_LISTENV) || (cmdnum == CMD_ERASEALL)) {
+        // See if we were passed a device to play.
+        if (playdevice != NULL) {
+            picolight = playdevice;
+        } else {
+            picolight = findpicolight();
+        }
+        if (!picolight) {
+            exit(1);
+        }
+    }
+        
+    // Handle commands that don't need the scripts
+    switch (cmdnum) {
+        case CMD_SETENV:
+            play_opendevice(picolight);
+            check_version();
+            if (argc > 2) {
+                if (env_setenv(argv[1],argv[2]) == 0) {
+                    printf("done!\n");
+                } else {
+                    printf("error occurred\n");
+                }
+            } else {
+                printf("usage:  lightscript2 setenv <name> <value>\n");
+            }
+            play_closedevice();
+            break;
+        case CMD_GETENV:
+            play_opendevice(picolight);
+            check_version();
+            if (argc > 1) {
+                char val[256];
+                if (env_getenv(argv[1],val,sizeof(val)) == 0) {
+                    printf("%s = %s\n",argv[1],val);
+                }
+            } else {
+                printf("usage:  lightscript2 getenv <name>\n");
+            }
+            play_closedevice();
+            break;
+        case CMD_LISTENV:
+            play_opendevice(picolight);
+            check_version();
+            if (1) {
+                char val[256];
+                env_listenv(val,sizeof(val));
+                printf("Variables defined: %s\n",val);
+            }
+            play_closedevice();
+            break;
+        case CMD_ERASEALL:
+                        play_opendevice(picolight);
+            check_version();
+            env_eraseall();
+            play_closedevice();
+            break;
+        default:
+            early_exit = 0;
+            break;
+    }
+
+    // we really need to rewrite all of this.
+    if (early_exit) {
+        exit(1);
     }
 
     // Read and parse the file, bail if we can't do it.
