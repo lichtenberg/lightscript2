@@ -26,6 +26,12 @@
 #include "lightscript.h"
 #include "musicplayer.h"
 
+#include <sys/socket.h>
+#include <netinet/in.h>
+#include <netinet/ip.h>
+#include <arpa/inet.h>
+#include <netinet/tcp.h>
+
 #define MSGSIZE 16
 
 static int device = -1;
@@ -490,7 +496,68 @@ static void all_off(void)
     } 
 }
 
-int play_opendevice(char *devname)
+int play_opentcpdevice(char *hostaddr)
+{
+    struct sockaddr_in sin;
+    struct sockaddr *saddr;
+    //struct hostent *hp;
+    size_t ssize;
+    long nport = 4242;
+    int rv;
+    int fd;
+    in_addr_t inaddr;
+
+    memset(&sin, 0, sizeof(sin));
+    sin.sin_family = AF_INET;
+
+    inaddr = inet_addr((const char *) hostaddr);
+    if (inaddr == INADDR_NONE) {
+        printf("Incorrectly formed IP address: %s\n",hostaddr);
+        return -1;
+    }
+
+//    hp = gethostbyname(host);
+//    if (!hp) {
+//        printf("lightscript: couldn't resolve host %s\n",host);
+//        exit(1);
+//    }
+
+    /* build the server's Internet address */
+    bzero((char *) &(sin), sizeof(sin));
+//    sin.sin_family = hp->h_addrtype;
+//    bcopy((char *)hp->h_addr, 
+//          (char *)&sin.sin_addr.s_addr, hp->h_length);
+    sin.sin_family = AF_INET;
+    sin.sin_addr.s_addr = inaddr;
+    sin.sin_port = htons(nport);
+    saddr = (struct sockaddr *) &sin;
+    ssize = sizeof(sin);
+
+    fd = socket(AF_INET, SOCK_STREAM, 0);
+    if (fd < 0) {
+        return -1;
+    }
+
+    rv = connect(fd, saddr, ssize);
+
+    if (rv) {
+        printf("lightscript: connect: %s\n",  strerror(errno));
+        return -1;
+    }
+
+    int flags = 1; 
+    if (setsockopt(fd, IPPROTO_TCP, TCP_NODELAY, (void *)&flags, sizeof(flags))) {
+        perror("ERROR: setsocketopt(), TCP_NODELAY");
+        exit(0); }
+    ; 
+
+    device = fd;
+    
+    return 0;
+
+}
+
+int play_openusbdevice(char *devname)
 {
     if (devname != NULL) {
         device = open(devname,O_RDWR);
@@ -504,6 +571,16 @@ int play_opendevice(char *devname)
     }
 
     return 0;
+}
+
+int play_opendevice(char *devname)
+{
+    if (inet_addr(devname) != INADDR_NONE) {
+        return play_opentcpdevice(devname);
+    } else {
+        return play_openusbdevice(devname);
+    }
+
 }
 
 void play_closedevice(void)
