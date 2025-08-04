@@ -31,6 +31,8 @@
 #include <netinet/ip.h>
 #include <arpa/inet.h>
 #include <netinet/tcp.h>
+#include <netdb.h>
+
 
 #define MSGSIZE 16
 
@@ -211,7 +213,7 @@ static void upload_config(LSScript_t *script)
     lsmessage_t rxMessage;
     int i;
 
-    printf("Retting panel\n");
+    printf("Resetting panel\n");
     // Send a RESET command
     memset(&txMessage,0,sizeof(txMessage));
     txMessage.ls_command = LSCMD_RESET;
@@ -323,6 +325,19 @@ int env_eraseall(void)
     txMessage.ls_length = sizeof(lseeprom_t);
     txMessage.info.ls_eeprom.le_subcmd = LSEEPROM_ERASEALL;
     txMessage.info.ls_eeprom.le_data[0] = 0;
+    send_command(&txMessage);
+    recv_response(&rxMessage);
+
+    return 0;
+}
+
+int reset_to_dfu(void)
+{
+    lsmessage_t txMessage;
+    lsmessage_t rxMessage;
+
+    txMessage.ls_command = LSCMD_DFU;
+    txMessage.ls_length = 0;
     send_command(&txMessage);
     recv_response(&rxMessage);
 
@@ -505,16 +520,25 @@ int play_opentcpdevice(char *hostaddr)
     long nport = 4242;
     int rv;
     int fd;
-    in_addr_t inaddr;
+    //  in_addr_t inaddr;
+    struct hostent *hp;
 
     memset(&sin, 0, sizeof(sin));
     sin.sin_family = AF_INET;
 
-    inaddr = inet_addr((const char *) hostaddr);
-    if (inaddr == INADDR_NONE) {
-        printf("Incorrectly formed IP address: %s\n",hostaddr);
+    hp = gethostbyname(hostaddr);
+
+    if (!hp) {
+        printf("Could not resolve hostname '%s'\n",hostaddr);
         return -1;
     }
+
+
+//    inaddr = inet_addr((const char *) hostaddr);
+//    if (inaddr == INADDR_NONE) {
+//        printf("Incorrectly formed IP address: %s\n",hostaddr);
+//        return -1;
+//    }
 
 //    hp = gethostbyname(host);
 //    if (!hp) {
@@ -524,11 +548,11 @@ int play_opentcpdevice(char *hostaddr)
 
     /* build the server's Internet address */
     bzero((char *) &(sin), sizeof(sin));
-//    sin.sin_family = hp->h_addrtype;
-//    bcopy((char *)hp->h_addr, 
-//          (char *)&sin.sin_addr.s_addr, hp->h_length);
+    sin.sin_family = hp->h_addrtype;
+    bcopy((char *)hp->h_addr, 
+          (char *)&sin.sin_addr.s_addr, hp->h_length);
     sin.sin_family = AF_INET;
-    sin.sin_addr.s_addr = inaddr;
+//    sin.sin_addr.s_addr = inaddr;
     sin.sin_port = htons(nport);
     saddr = (struct sockaddr *) &sin;
     ssize = sizeof(sin);
@@ -575,7 +599,8 @@ int play_openusbdevice(char *devname)
 
 int play_opendevice(char *devname)
 {
-    if (inet_addr(devname) != INADDR_NONE) {
+    if ((inet_addr(devname) != INADDR_NONE) ||
+        (strstr(devname,".lan") != NULL)) {
         return play_opentcpdevice(devname);
     } else {
         return play_openusbdevice(devname);
@@ -607,7 +632,7 @@ void play_script(int how)
     play_idle();
 
     printf("\n\n");
-    printf("Press ENTER to start playback\n"); getchar();
+    printf("Press RETURN to start playback\n"); getchar();
 
     time(&epoch);
     
@@ -622,7 +647,7 @@ void play_script(int how)
     all_off();
     play_idle();
 
-    msleep(200);
+//    msleep(1000);
     
     if (device != -1) {
         close(device);

@@ -13,3 +13,4 @@ int env_listenv(char *val, int vallen);
 int env_eraseall(void);
 
 void check_version(void);
+int reset_to_dfu(void);

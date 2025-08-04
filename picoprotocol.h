@@ -56,6 +56,7 @@
 #define LSCMD_SETVSTRIP         0x84            // Set a virtual strip
 #define LSCMD_INIT              0x85            // Initialize with programmed parameters.
 #define LSCMD_EEPROM            0x86            // EEPROM
+#define LSCMD_DFU               0x87            // DFU
 
 typedef struct __attribute__((packed)) lsanimate_s {
     uint16_t    la_anim;

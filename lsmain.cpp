@@ -346,6 +346,7 @@ static void usage(void)
 #define CMD_GETENV      5
 #define CMD_LISTENV     6
 #define CMD_ERASEALL    7
+#define CMD_DFU         8
 
 void inthandler(int x)
 {
@@ -409,6 +410,7 @@ int main(int argc,char *argv[])
     else if (strcmp(command,"getenv") == 0) cmdnum = CMD_GETENV;
     else if (strcmp(command,"listenv") == 0) cmdnum = CMD_LISTENV;
     else if (strcmp(command,"eraseall") == 0) cmdnum = CMD_ERASEALL;
+    else if (strcmp(command,"dfu") == 0) cmdnum = CMD_DFU;
 
     if (cmdnum == 0) {
         fprintf(stderr,"You must specify a command, 'play', 'mplay', or 'check' before the file name\n");
@@ -416,7 +418,7 @@ int main(int argc,char *argv[])
         usage();
     }
 
-    if ((cmdnum == CMD_PLAY) || (cmdnum == CMD_MPLAY) ||
+    if ((cmdnum == CMD_PLAY) || (cmdnum == CMD_MPLAY) || (cmdnum == CMD_DFU) ||
         (cmdnum == CMD_SETENV) || (cmdnum == CMD_GETENV) || (cmdnum == CMD_LISTENV) || (cmdnum == CMD_ERASEALL)) {
         // See if we were passed a device to play.
         if (playdevice != NULL) {
@@ -469,12 +471,18 @@ int main(int argc,char *argv[])
             play_closedevice();
             break;
         case CMD_ERASEALL:
-                        play_opendevice(picolight);
+            play_opendevice(picolight);
             check_version();
             env_eraseall();
             play_closedevice();
             break;
-        default:
+        case CMD_DFU:
+            play_opendevice(picolight);
+            check_version();
+            reset_to_dfu();
+            play_closedevice();
+            break;
+       default:
             early_exit = 0;
             break;
     }

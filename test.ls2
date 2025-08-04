@@ -1,31 +1,18 @@
+// Script for Boogie Wonderland File name:  boogiewonderland.ls2;
 
-music "sunny.ac3";
-define STRIP1 as 3;
-define STRIP2 = 3;
-defstrip RINGLETS as [RINGLET1, RINGLET2, RINGLET3];
+music "BoogieWonderland.mp3";
+
 idle IDLEWHITE;
-defmacro MYMAC {
-   idle IDLEBLACK;
-   define XYX as 3;
-};
-defmacro MYMAC (arg1, arg2) {
-   idle IDLEBLACK;
-   define XYX as 3;
-};
 
-at 3.0 on [RINGLETS] do SOUNDPULSE speed 500 reverse;
+defmacro MAC1 {
+from 0.0 to 2.0 count 4 do SOUNDPULSE on [RINGLET2, RINGLET3, RINGLET4, RINGLET5] speed 250 color RED; };
 
-physical {
-        pstrip RING channel A2 count 30;
-        pstrip PERIMETER1 channel A0 count 60;
-        pstrip PERIMETER2 channel A1 count 60;
-};
-
-virtual {
-        vstrip RING pstrip RING start 30 count 30;
-        vstrip PERIMETER1 pstrip PERIMETER1 start 30 count 30 reverse;
-};
+at 4.50 do OFF on PERIMETER; 
 
 
+at 0.0 macro MAC1;
+
+// [RINGLET2, RINGLET3, RINGLET4, RINGLET5];
+//[RINGLET2, RINGLET3, RINGLET4, RINGLET5] speed 250 color RED; };
 
 

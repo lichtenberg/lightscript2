@@ -39,4 +39,4 @@ clean :
 	rm -f lightscript $(OBJS) lightscript.yy.c 
 
 zip :
-	zip ../lightscript$(shell date "+%Y%m%d") lightscript *.cfg
+	zip ../lightscript$(shell date "+%Y%m%d") lightscript lightscript.cfg panel.cfg laser.cfg lasertest*.ls2
