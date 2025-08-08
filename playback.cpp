@@ -23,7 +23,7 @@
 #include "schedule.hpp"
 #include "symtab.hpp"
 
-#include "lightscript.h"
+#include "lsinternal.h"
 #include "musicplayer.h"
 
 #include <sys/socket.h>

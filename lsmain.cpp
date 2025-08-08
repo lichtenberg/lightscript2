@@ -22,7 +22,7 @@
 #include <signal.h>
 
 #include "tokenstream.hpp"
-#include "lightscript.h"
+#include "lsinternal.h"
 #include "symtab.hpp"
 #include "parser.hpp"
 #include "schedule.hpp"

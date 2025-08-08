@@ -1,7 +1,7 @@
 #pragma once
 
 #include "tokenstream.hpp"
-#include "lightscript.h"
+#include "lsinternal.h"
 
 
 class LSParser {

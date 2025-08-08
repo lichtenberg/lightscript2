@@ -1,6 +1,6 @@
 #include <vector>
 #include <string>
-#include "lightscript.h"
+#include "lsinternal.h"
 #include "parser.hpp"
 #include "symtab.hpp"
 

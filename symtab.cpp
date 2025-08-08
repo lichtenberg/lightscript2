@@ -2,7 +2,7 @@
 #include <string>
 #include <vector>
 
-#include "lightscript.h"
+#include "lsinternal.h"
 #include "symtab.hpp"
 
 

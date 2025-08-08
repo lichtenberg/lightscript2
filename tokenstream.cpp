@@ -5,7 +5,7 @@
 #include "lstokens.h"
 
 #include "tokenstream.hpp"
-#include "lightscript.h"
+#include "lsinternal.h"
 
 LSToken::LSToken()
 {
