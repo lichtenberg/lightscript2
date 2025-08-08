@@ -5,8 +5,9 @@
 
 typedef struct schedcmd_s {
     double time;
+    const char *comment;
     int line;
-    uint64_t stripmask;
+    uint32_t stripmask[MAXVSTRIPS/32];
     int animation;
     int speed;
     int brightness;
@@ -24,7 +25,7 @@ public:
     LSSchedule(LSScript_t *s);
     ~LSSchedule();
 public:
-    uint64_t stripMask(LSCommand_t *c, idlist_t *list);
+    void stripMask(LSCommand_t *c, idlist_t *list, uint32_t *mask);
 
 private:
     int nestLevel;
@@ -32,6 +33,7 @@ private:
 private:
     void insert(double baseTime, LSCommand_t *c);
     void insert_do(double baseTime, LSCommand_t *c);
+    void insert_comment(double baseTime, LSCommand_t *c);
     void insert_cascade(double baseTime, LSCommand_t *c);
     void insert_macro(double baseTime, LSCommand_t *c);
     schedcmd_t *newSchedCmd(double baseTime, LSCommand_t *cmd);
@@ -41,6 +43,8 @@ private:
     std::vector<int> *stripVec(LSCommand_t *c, idlist_t *list);
 
     void addSched(schedcmd_t *scmd);
+
+    int findStrip(std::string name);
 
     LSScript_t *script;
 

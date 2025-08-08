@@ -1,0 +1,6 @@
+
+pstrip RING channel A2 count 60;
+
+vstrip RINGLET1 {
+       pstrip RING start 40 count 20 reverse;
+       };

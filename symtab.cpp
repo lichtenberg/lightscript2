@@ -2,7 +2,7 @@
 #include <string>
 #include <vector>
 
-#include "lightscript.h"
+#include "lsinternal.h"
 #include "symtab.hpp"
 
 
@@ -186,4 +186,8 @@ bool LSMacroTab::findMacro(std::string name, idlist_t * &args, cmdlist_t * &comm
     }
     return false;
 }
+
+
+
+
 

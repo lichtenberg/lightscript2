@@ -22,12 +22,14 @@
 #include <signal.h>
 
 #include "tokenstream.hpp"
-#include "lightscript.h"
+#include "lsinternal.h"
 #include "symtab.hpp"
 #include "parser.hpp"
 #include "schedule.hpp"
 
 #include "playback.h"
+
+#define VERSION "2.2"
 
 extern "C" {
 #include "lstokens.h"
@@ -86,7 +88,7 @@ static char *findpicolight(void)
 
 
     if (devcnt > 0) {
-        sprintf(devname,"/dev/%s",devicenames[picked]);
+        snprintf(devname,sizeof(devname)-1,"/dev/%s",devicenames[picked]);
     }
 
     for (i = 0; i < devcnt; i++) {
@@ -116,7 +118,7 @@ static bool tokenize_file(char *filename)
 
     // Call the lexer and read all the tokens into the token stream.
     while ((t = (lstoktype_t) yylex())) {
-        LSToken tok = LSToken(t, yylineno, &yylval);
+        LSToken tok = LSToken(t, filename, yylineno, &yylval);
         tokenStream.add(tok);
     }
 
@@ -124,6 +126,59 @@ static bool tokenize_file(char *filename)
 
     return true;
 }
+
+static void script_showpstrips(LSScript_t *script)
+{
+    int idx;
+    char chName;
+    int chNum;
+    
+    printf("Physical strip table:\n");
+    for (idx = 0; idx < MAXPSTRIPS; idx++) {
+        PStrip_t *strip = &script->physicalStrips[idx];
+        if (strip->name == "") continue;
+
+        if (PSTRIP_TYPE(strip->info) == PSTRIP_TYPE_LASER) {
+            chName = 'L';
+            chNum = PSTRIP_CHAN(strip->info);
+        } else {
+            chName = "AB"[(PSTRIP_CHAN(strip->info) >> 3) & 1];
+            chNum = (PSTRIP_CHAN(strip->info) & 0x7) + 1;
+        }
+        printf("  %-20.20s  channel=%c%d type=%u count=%u\n",
+               strip->name.c_str(),
+               chName,chNum,
+               PSTRIP_TYPE(strip->info),
+               PSTRIP_COUNT(strip->info));
+    }
+}
+
+static const char *stripChars = "1234567890ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
+static void script_showvstrips(LSScript_t *script)
+{
+    int idx;
+    int ss;        
+    VStrip_t *vstrip;
+
+    printf("\nVirtual strip table (%u entries):\n",script->virtualStripCount);
+
+    for (idx = 0; idx < script->virtualStripCount; idx++) {
+        vstrip = &script->virtualStrips[idx];
+        printf("  %-20.20s '%c'  ",vstrip->name.c_str(), stripChars[idx]);
+        for (ss = 0; ss < vstrip->substripCount; ss++) {
+            uint32_t chan = SUBSTRIP_CHAN(vstrip->substrips[ss]);
+            uint32_t start = SUBSTRIP_START(vstrip->substrips[ss]);
+            uint32_t count = SUBSTRIP_COUNT(vstrip->substrips[ss]);
+            uint32_t reverse = SUBSTRIP_DIRECTION(vstrip->substrips[ss]);
+            printf("[%c%u (%u,%u) %c]  ",
+                   "AB"[(chan >> 3) & 1], chan & 7,
+                   start, count,
+                   reverse ? 'R' : 'F');
+        }
+        printf("\n");
+    }
+}
+
 
 static void script_stats(LSScript_t *script)
 {
@@ -134,11 +189,14 @@ static void script_stats(LSScript_t *script)
     printf("Music file:          %s\n",music);
     printf("Idle animation:      %s\n",idleanim);
     printf("Symbol table size:   %d\n",script->symbolTable->size());
-    printf("Strip table size:    %d\n",script->stripTable->size());
     printf("Color table size:    %d\n",script->colorTable->size());
     printf("Anim table size:     %d\n",script->animTable->size());
     printf("StripList tab size:  %d\n",script->stripListTable->size());
     printf("Macro list size:     %d\n",script->macroTable->size());
+    printf("\n");
+
+    script_showpstrips(script);
+    script_showvstrips(script);
 
     printf("\n\n\n");
 }
@@ -153,12 +211,21 @@ static LSScript_t *do_parse(void)
     LSParser *parser = new LSParser(&tokenStream, script);
 
     script->symbolTable = new LSSymTab("symbol");
-    script->stripTable = new LSSymTab("strips");
     script->animTable = new LSSymTab("animations");
     script->colorTable = new LSSymTab("colors");
     script->stripListTable = new LSStripListTab;
     script->macroTable = new LSMacroTab;
 
+    // Initialize the index values from the pstrip and vstrip tables,
+    // not sure if we really need it.
+    for (unsigned int idx = 0; idx < MAXPSTRIPS; idx++) {
+            script->physicalStrips[idx].idx = idx;
+        }
+    for (unsigned int idx = 0; idx < MAXVSTRIPS; idx++) {
+            script->virtualStrips[idx].idx = idx;
+        }
+
+    // Go parse the file.
     if (parser->parse() == 0) {
         printf("File parsed successfully\n");
         script_stats(script);
@@ -168,8 +235,14 @@ static LSScript_t *do_parse(void)
     return NULL;
 }
 
-static bool read_and_parse(char *configfilename, char *scriptfilename)
+static bool read_and_parse(char *panelconfigfilename, char *configfilename, char *scriptfilename)
 {
+    if (panelconfigfilename) {
+        if (!tokenize_file(panelconfigfilename)) {
+            return false;
+        }
+    }
+
     if (configfilename) {
         if (!tokenize_file(configfilename)) {
             return false;
@@ -239,9 +312,10 @@ static int parse_range(char *str, double *start, double *end)
 
 static void usage(void)
 {
-    fprintf(stderr,"Usage: lightscript [-c configfile] [-v] [-p device] command script-file\n\n");
-    fprintf(stderr,"    -c configfile       Specifies the name of a configuration file\n");
-    fprintf(stderr,"    -p device           Specifies the name of the Arduino device\n");
+    fprintf(stderr,"Usage: lightscript [-p panelconfig] [-c configfile] [-v] [-d device] command script-file\n\n");
+    fprintf(stderr,"    -p configfile       Specifies the name of a panel configuration file, default 'panel.cfg'\n");
+    fprintf(stderr,"    -c configfile       Specifies the name of a configuration file, default 'lightscript.cfg'\n");
+    fprintf(stderr,"    -d device           Specifies the name of the PicoLight device\n");
     fprintf(stderr,"    -s time             Starting time for playback\n");
     fprintf(stderr,"    -v                  Print diagnostic output\n");
     fprintf(stderr,"\n");
@@ -268,6 +342,11 @@ static void usage(void)
 #define CMD_PLAY        1
 #define CMD_CHECK       2
 #define CMD_MPLAY       3
+#define CMD_SETENV      4
+#define CMD_GETENV      5
+#define CMD_LISTENV     6
+#define CMD_ERASEALL    7
+#define CMD_DFU         8
 
 void inthandler(int x)
 {
@@ -279,24 +358,31 @@ int main(int argc,char *argv[])
 {
 
     char *configfilename = (char *) "lightscript.cfg";
+    char *panelconfigfilename = (char *) "panel.cfg";
     char *scriptfilename = NULL;
     char *playdevice = NULL;
     char *command;
     char *picolight = NULL;
     int cmdnum = 0;
+    int early_exit = 1;
     double start_cue = 0;
     double end_cue = 0;
     int ch;
+
+    printf("Lightscript version %s\n\n",VERSION);
     
-    while ((ch = getopt(argc,argv,"c:vp:s:")) != -1) {
+    while ((ch = getopt(argc,argv,"c:p:vd:s:")) != -1) {
         switch (ch) {
             case 'c':
                 configfilename = optarg;
                 break;
+            case 'p':
+                panelconfigfilename = optarg;
+                break;
             case 'v':
                 debug = 1;
                 break;
-            case 'p':
+            case 'd':
                 playdevice = optarg;
                 break;
             case 's':
@@ -320,6 +406,11 @@ int main(int argc,char *argv[])
     if (strcmp(command,"play") == 0) cmdnum = CMD_PLAY;
     else if (strcmp(command,"check") == 0) cmdnum = CMD_CHECK;
     else if (strcmp(command,"mplay") == 0) cmdnum = CMD_MPLAY;
+    else if (strcmp(command,"setenv") == 0) cmdnum = CMD_SETENV;
+    else if (strcmp(command,"getenv") == 0) cmdnum = CMD_GETENV;
+    else if (strcmp(command,"listenv") == 0) cmdnum = CMD_LISTENV;
+    else if (strcmp(command,"eraseall") == 0) cmdnum = CMD_ERASEALL;
+    else if (strcmp(command,"dfu") == 0) cmdnum = CMD_DFU;
 
     if (cmdnum == 0) {
         fprintf(stderr,"You must specify a command, 'play', 'mplay', or 'check' before the file name\n");
@@ -327,8 +418,82 @@ int main(int argc,char *argv[])
         usage();
     }
 
+    if ((cmdnum == CMD_PLAY) || (cmdnum == CMD_MPLAY) || (cmdnum == CMD_DFU) ||
+        (cmdnum == CMD_SETENV) || (cmdnum == CMD_GETENV) || (cmdnum == CMD_LISTENV) || (cmdnum == CMD_ERASEALL)) {
+        // See if we were passed a device to play.
+        if (playdevice != NULL) {
+            picolight = playdevice;
+        } else {
+            picolight = findpicolight();
+        }
+        if (!picolight) {
+            exit(1);
+        }
+    }
+        
+    // Handle commands that don't need the scripts
+    switch (cmdnum) {
+        case CMD_SETENV:
+            play_opendevice(picolight);
+            check_version();
+            if (argc > 2) {
+                if (env_setenv(argv[1],argv[2]) == 0) {
+                    printf("done!\n");
+                } else {
+                    printf("error occurred\n");
+                }
+            } else {
+                printf("usage:  lightscript2 setenv <name> <value>\n");
+            }
+            play_closedevice();
+            break;
+        case CMD_GETENV:
+            play_opendevice(picolight);
+            check_version();
+            if (argc > 1) {
+                char val[256];
+                if (env_getenv(argv[1],val,sizeof(val)) == 0) {
+                    printf("%s = %s\n",argv[1],val);
+                }
+            } else {
+                printf("usage:  lightscript2 getenv <name>\n");
+            }
+            play_closedevice();
+            break;
+        case CMD_LISTENV:
+            play_opendevice(picolight);
+            check_version();
+            if (1) {
+                char val[256];
+                env_listenv(val,sizeof(val));
+                printf("Variables defined: %s\n",val);
+            }
+            play_closedevice();
+            break;
+        case CMD_ERASEALL:
+            play_opendevice(picolight);
+            check_version();
+            env_eraseall();
+            play_closedevice();
+            break;
+        case CMD_DFU:
+            play_opendevice(picolight);
+            check_version();
+            reset_to_dfu();
+            play_closedevice();
+            break;
+       default:
+            early_exit = 0;
+            break;
+    }
+
+    // we really need to rewrite all of this.
+    if (early_exit) {
+        exit(1);
+    }
+
     // Read and parse the file, bail if we can't do it.
-    if (read_and_parse(configfilename, scriptfilename) == false) {
+    if (read_and_parse(panelconfigfilename, configfilename, scriptfilename) == false) {
         exit(1);
     }
 
@@ -358,14 +523,23 @@ int main(int argc,char *argv[])
     sigfillset(&sigint_action.sa_mask);
     sigaction(SIGINT, &sigint_action, NULL);
 
+    if ((cmdnum == CMD_MPLAY) || (cmdnum == CMD_PLAY)) {
+        play_opendevice(picolight);
+        play_init(script, schedule);
+        play_initdevice(script);
+    }
+
+    switch (cmdnum) {
+        case CMD_PLAY:
+            play_script(0);
+            break;
+        case CMD_MPLAY:
+            play_script(1);
+            break;
+        default:
+            break;
+    }
     
-    if (cmdnum == CMD_PLAY) {
-        play_init(script, schedule);
-        play_script(picolight, 0);
-    } else if (cmdnum == CMD_MPLAY) {
-        play_init(script, schedule);
-        play_script(picolight, 1);
-        }
 
     return 0;
 }

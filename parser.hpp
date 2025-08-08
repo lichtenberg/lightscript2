@@ -1,7 +1,7 @@
 #pragma once
 
 #include "tokenstream.hpp"
-#include "lightscript.h"
+#include "lsinternal.h"
 
 
 class LSParser {
@@ -23,7 +23,14 @@ private:
     idlist_t *parseIDList();
     idlist_t *parseIDSingle();
     idlist_t *parseArgList();
+    vallist_t *parseValueList();
     void parseOption(LSCommand_t *cmd);
     void parseOptionList(LSCommand_t *cmd);
     void parseMacroBody(idlist_t * &idl, cmdlist_t * &cmdl);
+    void parsePhysicalStrips(void);
+    void parseVirtualStrips(void);
+    void parseOnePhysicalStrip(void);
+    void parseOneVirtualStrip(void);
+    unsigned int parseOneSubstrip(void);
+    PStrip_t *findPStrip(std::string& name);
 };

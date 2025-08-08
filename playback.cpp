@@ -23,8 +23,16 @@
 #include "schedule.hpp"
 #include "symtab.hpp"
 
-#include "lightscript.h"
+#include "lsinternal.h"
 #include "musicplayer.h"
+
+#include <sys/socket.h>
+#include <netinet/in.h>
+#include <netinet/ip.h>
+#include <arpa/inet.h>
+#include <netinet/tcp.h>
+#include <netdb.h>
+
 
 #define MSGSIZE 16
 
@@ -52,38 +60,290 @@ static double current_time(LSScript_t *script)
     return ((double) (tv.tv_sec - epoch)) + ((double)(tv.tv_usec)/1000000.0);
 }
 
-typedef struct __attribute__((packed)) lsmessage_s {
-    uint8_t     ls_sync[2];
-    uint16_t    ls_reserved;
-    uint16_t    ls_anim;
-    uint16_t    ls_speed;
-    uint16_t    ls_option;
-    uint32_t    ls_color;
-    uint32_t    ls_strips;
-} lsmessage_t;
 
-void send_message(unsigned int strips, unsigned int anim,  unsigned int speed, unsigned int option, unsigned int palette)
+static int send_command(lsmessage_t *msg)
+{
+    uint8_t sync[2];
+    int txlen;
+
+    if (device <= 0) {
+        return -1;
+    }
+
+    sync[0] = 0x02;
+    sync[1] = 0xAA;
+    if (write(device, sync, sizeof(sync)) != sizeof(sync)) {
+        perror("Write Error to Picolight [sync]");
+        exit(1);
+    }
+
+    txlen = LSMSG_HDRSIZE + msg->ls_length;
+
+    if (write(device, msg, txlen) != txlen) {
+        perror("Write Error to Picolight [cmd]");
+        exit(1);
+    }
+
+    return 0;
+}
+
+static int readdata(int device, uint8_t *buf, int len)
+{
+    int res;
+    int ttl = 0;
+
+    while (len > 0) {
+        res = read(device, buf, len);
+        if (res <= 0) {
+            printf("Read error from PicoLight: %d\n",res);
+            exit(1);
+        }
+        buf += res;
+        len -= res;
+        ttl += res;
+    }
+
+    return ttl;
+}
+
+
+#define STATE_SYNC1 0
+#define STATE_SYNC2 1
+static int recv_response(lsmessage_t *msg)
+{
+    uint8_t b;
+    int res;
+    int reading = 1;
+    int state = STATE_SYNC1;
+
+    if (device <= 0) {
+        return -1;
+    }
+
+    #if 0
+    for (;;) {
+        if (readdata(device,&b,1) == 1) { printf("%02X ",b); fflush(stdout);}
+        else {
+            printf("read error\n");
+            exit(1);
+        }
+    }
+    #endif
+
+    while (reading) {
+        if (readdata(device,&b,1) < 1) {
+            printf("Read error from Picolight [sync]\n");
+            exit(1);
+        }
+        switch (state) {
+            case STATE_SYNC1:
+                if (b == 0x02) {
+                    state = STATE_SYNC2;
+                }
+                break;
+            case STATE_SYNC2:
+                if (b == 0xAA) {
+                    reading = 0;
+                } else {
+                    state = STATE_SYNC1;
+                }
+        }
+    }
+
+    memset(msg,0,sizeof(lsmessage_t));
+
+    if (readdata(device,(uint8_t *) msg,LSMSG_HDRSIZE) != LSMSG_HDRSIZE) {
+        printf("Read error from Picolight [hdr]\n");
+            exit(1);
+    }
+
+    int rxlen = msg->ls_length;
+
+    if (rxlen != 0) {
+        if ((res = readdata(device,(uint8_t *) &(msg->info), rxlen)) != rxlen) {
+            printf("Read error from Picolight [payload] %d\n",res);
+            exit(1);
+        }
+    }
+
+    return 0;
+            
+}
+
+void check_version(void)
 {
     lsmessage_t msg;
 
-    if (device <= 0) {
-        return;
-    }
+    msg.ls_command = LSCMD_VERSION;
+    msg.ls_length = 0;
 
-    msg.ls_sync[0] = 0x02;
-    msg.ls_sync[1] = 0xAA;
-    msg.ls_strips = strips;
-    msg.ls_anim = anim;
-    msg.ls_speed = speed;
-    msg.ls_option = option;
-    msg.ls_color = palette;
-    msg.ls_reserved = 0;
+    send_command(&msg);
+    recv_response(&msg);
 
-    if (write(device, &msg, sizeof(msg)) != sizeof(msg)) {
-        perror("Write Error to Picolight");
-        exit(1);
-    }
+    printf("Protocol version: %u     Firmware Version %u.%u    Hardware %u\n",
+           msg.info.ls_version.lv_protocol,
+           msg.info.ls_version.lv_major,
+           msg.info.ls_version.lv_minor,
+           msg.info.ls_version.lv_hwtype);
 }
+
+static void send_animate(uint32_t *strips, uint16_t anim,  uint16_t speed, uint16_t option, uint32_t color)
+{
+    lsmessage_t msg;
+
+    memset(&msg,0,sizeof(msg));
+
+    for (int i = 0; i < MAXVSTRIPS/32; i++) {
+        msg.info.ls_animate.la_strips[i] = strips[i];
+    }
+
+    msg.info.ls_animate.la_anim = anim;
+    msg.info.ls_animate.la_speed = speed;
+    msg.info.ls_animate.la_option = option;
+    msg.info.ls_animate.la_color = color;
+    msg.ls_length = sizeof(lsanimate_t);
+    msg.ls_command = LSCMD_ANIMATE;
+
+    send_command(&msg);
+}
+
+static void upload_config(LSScript_t *script)
+{
+    lsmessage_t txMessage;
+    lsmessage_t rxMessage;
+    int i;
+
+    printf("Resetting panel\n");
+    // Send a RESET command
+    memset(&txMessage,0,sizeof(txMessage));
+    txMessage.ls_command = LSCMD_RESET;
+    txMessage.ls_length = 0;
+    send_command(&txMessage);
+    recv_response(&rxMessage);
+
+    printf("Sending physical strips\n");
+    // Send over the physical strips
+    for (i = 0; i < MAXPSTRIPS; i++) {
+        uint32_t info = script->physicalStrips[i].info;
+        if (PSTRIP_COUNT(info) > 0) {
+            memset(&txMessage,0,sizeof(txMessage));
+            txMessage.ls_command = LSCMD_SETPSTRIP;
+            txMessage.ls_length = sizeof(lspstrip_t);
+            txMessage.info.ls_pstrip.lp_pstrip = info;
+            send_command(&txMessage);
+            recv_response(&rxMessage);
+        }
+    }
+            
+
+    printf("Sending virtual strips\n");
+    // Send over the logical strips
+    for (i = 0; i < script->virtualStripCount; i++) {
+        VStrip_t *vstrip = &script->virtualStrips[i];
+        memset(&txMessage,0,sizeof(txMessage));
+        txMessage.ls_command = LSCMD_SETVSTRIP;
+        txMessage.ls_length = sizeof(lsvstrip_t);
+        txMessage.info.ls_vstrip.lv_idx = i;
+        txMessage.info.ls_vstrip.lv_count = vstrip->substripCount;
+        memcpy(txMessage.info.ls_vstrip.lv_substrips,
+               vstrip->substrips,
+               vstrip->substripCount * sizeof(uint32_t));
+        send_command(&txMessage);
+        recv_response(&rxMessage);
+    }
+            
+    printf("Initializing panel with new config\n");
+    // Send the INIT command
+    memset(&txMessage,0,sizeof(txMessage));
+    txMessage.ls_command = LSCMD_INIT;
+    txMessage.ls_length = 0;
+    send_command(&txMessage);
+    recv_response(&rxMessage);
+}
+
+
+int env_getenv(char *name, char *val, int vallen)
+{
+    lsmessage_t txMessage;
+    lsmessage_t rxMessage;
+
+    txMessage.ls_command = LSCMD_EEPROM;
+    txMessage.ls_length = sizeof(lseeprom_t);
+    txMessage.info.ls_eeprom.le_subcmd = LSEEPROM_GETENV;
+    strncpy((char *) txMessage.info.ls_eeprom.le_data, name, LSEEPROM_MAXDATA);
+    send_command(&txMessage);
+    recv_response(&rxMessage);
+
+    if (rxMessage.info.ls_eeprom.le_data[0] == 0) {
+        return -1;
+    }
+    strncpy(val, (char *) rxMessage.info.ls_eeprom.le_data, vallen);
+
+    return 0;
+}
+
+int env_setenv(char *name, char *val)
+{
+    lsmessage_t txMessage;
+    lsmessage_t rxMessage;
+
+    txMessage.ls_command = LSCMD_EEPROM;
+    txMessage.ls_length = sizeof(lseeprom_t);
+    txMessage.info.ls_eeprom.le_subcmd = LSEEPROM_SETENV;
+    snprintf((char *) txMessage.info.ls_eeprom.le_data, LSEEPROM_MAXDATA, "%s=%s",name,val);
+    send_command(&txMessage);
+    recv_response(&rxMessage);
+    return 0;
+}
+
+int env_listenv(char *val, int vallen)
+{
+    lsmessage_t txMessage;
+    lsmessage_t rxMessage;
+
+    txMessage.ls_command = LSCMD_EEPROM;
+    txMessage.ls_length = sizeof(lseeprom_t);
+    txMessage.info.ls_eeprom.le_subcmd = LSEEPROM_PRINTENV;
+    txMessage.info.ls_eeprom.le_data[0] = 0;
+    send_command(&txMessage);
+    recv_response(&rxMessage);
+
+    if (rxMessage.info.ls_eeprom.le_data[0] == 0) {
+        return -1;
+    }
+    strncpy(val, (char *) rxMessage.info.ls_eeprom.le_data, vallen);
+
+    return 0;
+}
+
+int env_eraseall(void)
+{
+    lsmessage_t txMessage;
+    lsmessage_t rxMessage;
+
+    txMessage.ls_command = LSCMD_EEPROM;
+    txMessage.ls_length = sizeof(lseeprom_t);
+    txMessage.info.ls_eeprom.le_subcmd = LSEEPROM_ERASEALL;
+    txMessage.info.ls_eeprom.le_data[0] = 0;
+    send_command(&txMessage);
+    recv_response(&rxMessage);
+
+    return 0;
+}
+
+int reset_to_dfu(void)
+{
+    lsmessage_t txMessage;
+    lsmessage_t rxMessage;
+
+    txMessage.ls_command = LSCMD_DFU;
+    txMessage.ls_length = 0;
+    send_command(&txMessage);
+    recv_response(&rxMessage);
+
+    return 0;
+}
+
 
 static void play_events(LSScript_t *script,LSSchedule *sched)
 {
@@ -123,7 +383,9 @@ static void play_events(LSScript_t *script,LSSchedule *sched)
             if (cmd->direction) anim |= 0x8000;
             
             sched->printSchedEntry(cmd);
-            send_message(cmd->stripmask, anim, cmd->speed, cmd->option, cmd->palette);
+            if (cmd->comment == NULL) {
+                send_animate(cmd->stripmask, anim, cmd->speed, cmd->option, cmd->palette);
+            }
 
             idx++;
         }
@@ -169,7 +431,9 @@ int player_callback(double now)
         if (cmd->direction) anim |= 0x8000;
             
         cursched->printSchedEntry(cmd);
-        send_message(cmd->stripmask, anim, cmd->speed, cmd->option, cmd->palette);
+        if (cmd->comment == NULL) {
+            send_animate(cmd->stripmask, anim, cmd->speed, cmd->option, cmd->palette);
+        }
 
         musicpos++;
     }
@@ -213,11 +477,11 @@ static void play_music(LSScript_t *script,LSSchedule *sched)
 static void play_idle(void)
 {
     int v;
-    uint64_t mask = 0;
+    uint32_t mask[MAXVSTRIPS/32];
 
     if (curscript->lss_idlestrips) {
         try {
-            mask = cursched->stripMask(NULL,curscript->lss_idlestrips);
+            cursched->stripMask(NULL,curscript->lss_idlestrips,mask);
         } catch (int e) {
             return;
         }
@@ -225,7 +489,7 @@ static void play_idle(void)
 
     if (curscript->lss_idleanimation != "") {
         if (curscript->animTable->findSym(curscript->lss_idleanimation,v)) {
-            send_message((uint32_t) mask, v, 500, 0, 0);
+            send_animate(mask, v, 500, 0, 0);
         } else {
             printf("Warning: idle animation '%s' is not valid\n",curscript->lss_idleanimation.c_str());
         }
@@ -235,34 +499,140 @@ static void play_idle(void)
 
 static void all_off(void)
 {
+    uint32_t mask[MAXVSTRIPS/32];
+
+    memset(mask,0,sizeof(mask));
+    mask[0] = 0x7FFFFFFF;
+    
     // Send "OFF" to everyone, then wait 200ms.
     if (offAnim) {
-        send_message(0x7FFFFFFF, offAnim, 500, 0, 0);
+        send_animate(mask, offAnim, 500, 0, 0);
         msleep(200);
     } 
 }
 
-
-void play_script(char *devname, int how)
+int play_opentcpdevice(char *hostaddr)
 {
-    play_please_stop = false;
+    struct sockaddr_in sin;
+    struct sockaddr *saddr;
+    //struct hostent *hp;
+    size_t ssize;
+    long nport = 4242;
+    int rv;
+    int fd;
+    //  in_addr_t inaddr;
+    struct hostent *hp;
 
+    memset(&sin, 0, sizeof(sin));
+    sin.sin_family = AF_INET;
+
+    hp = gethostbyname(hostaddr);
+
+    if (!hp) {
+        printf("Could not resolve hostname '%s'\n",hostaddr);
+        return -1;
+    }
+
+
+//    inaddr = inet_addr((const char *) hostaddr);
+//    if (inaddr == INADDR_NONE) {
+//        printf("Incorrectly formed IP address: %s\n",hostaddr);
+//        return -1;
+//    }
+
+//    hp = gethostbyname(host);
+//    if (!hp) {
+//        printf("lightscript: couldn't resolve host %s\n",host);
+//        exit(1);
+//    }
+
+    /* build the server's Internet address */
+    bzero((char *) &(sin), sizeof(sin));
+    sin.sin_family = hp->h_addrtype;
+    bcopy((char *)hp->h_addr, 
+          (char *)&sin.sin_addr.s_addr, hp->h_length);
+    sin.sin_family = AF_INET;
+//    sin.sin_addr.s_addr = inaddr;
+    sin.sin_port = htons(nport);
+    saddr = (struct sockaddr *) &sin;
+    ssize = sizeof(sin);
+
+    fd = socket(AF_INET, SOCK_STREAM, 0);
+    if (fd < 0) {
+        return -1;
+    }
+
+    rv = connect(fd, saddr, ssize);
+
+    if (rv) {
+        printf("lightscript: connect: %s\n",  strerror(errno));
+        return -1;
+    }
+
+    int flags = 1; 
+    if (setsockopt(fd, IPPROTO_TCP, TCP_NODELAY, (void *)&flags, sizeof(flags))) {
+        perror("ERROR: setsocketopt(), TCP_NODELAY");
+        exit(0); }
+    ; 
+
+    device = fd;
+    
+    return 0;
+
+}
+
+int play_openusbdevice(char *devname)
+{
     if (devname != NULL) {
         device = open(devname,O_RDWR);
 
         if (device < 0) {
             fprintf(stderr,"Error: Could not open Picolight device %s: %s\n",devname, strerror(errno));
-            return;
+            return -1;
         }
     } else {
         device = -1;             // No device, just pretend.
     }
 
+    return 0;
+}
+
+int play_opendevice(char *devname)
+{
+    if ((inet_addr(devname) != INADDR_NONE) ||
+        (strstr(devname,".lan") != NULL)) {
+        return play_opentcpdevice(devname);
+    } else {
+        return play_openusbdevice(devname);
+    }
+
+}
+
+void play_closedevice(void)
+{
+    if (device > 0) {
+        close(device);
+        device = -1;
+    }
+}
+
+void play_initdevice(LSScript_t *script)
+{
+    check_version();
+    upload_config(script);
+}
+
+
+
+void play_script(int how)
+{
+    play_please_stop = false;
+
     all_off();
     play_idle();
 
     printf("\n\n");
-    printf("Press ENTER to start playback\n"); getchar();
+    printf("Press RETURN to start playback\n"); getchar();
 
     time(&epoch);
     
@@ -277,7 +647,7 @@ void play_script(char *devname, int how)
     all_off();
     play_idle();
 
-    msleep(200);
+//    msleep(1000);
     
     if (device != -1) {
         close(device);

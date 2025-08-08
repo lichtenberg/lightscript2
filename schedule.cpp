@@ -1,5 +1,6 @@
 #include <vector>
 #include <string>
+#include <assert.h>
 #include "schedule.hpp"
 #include "symtab.hpp"
 
@@ -22,8 +23,22 @@ static const char *lsctypes[] = {
     [LSC_CASCADE] = "CASCADE",
     [LSC_DO] = "DO",
     [LSC_MACRO] = "MACRO",
+    [LSC_COMMENT] = "COMMENT",
 };
 #endif
+
+int LSSchedule::findStrip(std::string name)
+{
+    int i;
+
+    for (i = 0; i < script->virtualStripCount; i++) {
+        if (name == script->virtualStrips[i].name) {
+            return i;
+        }
+    }
+    return -1;
+}
+
 
 schedcmd_t *LSSchedule::newSchedCmd(double baseTime, LSCommand_t *cmd)
 {
@@ -63,7 +78,7 @@ void LSSchedule::stripVec1(LSCommand_t *c, stripvec_t *vec, idlist_t *list)
                 stripVec1(c, vec,sublist);
                 nestLevel--;
             }
-        } else if (script->stripTable->findSym(*i, v)) {
+        } else if ( (v = findStrip(*i)) >= 0) {
             vec->push_back(v);
         } else {
             printf("[Line %d]: Could not find strip name: '%s'\n",c->lsc_line, i->c_str());
@@ -84,12 +99,16 @@ stripvec_t *LSSchedule::stripVec(LSCommand_t *c, idlist_t *list)
 
 
 
-uint64_t LSSchedule::stripMask(LSCommand_t *c, idlist_t *list)
+void LSSchedule::stripMask(LSCommand_t *c, idlist_t *list,uint32_t *mask)
 {
-    uint64_t mask = 0LL;
     int v;
     idlist_t::iterator i;
     idlist_t *sublist;
+
+    if (nestLevel == 0) {
+        // Oh how terribly gross.
+        for (v = 0; v < MAXVSTRIPS/32; v++) mask[v] = 0;
+    }
 
     nestLevel++;
 
@@ -99,10 +118,10 @@ uint64_t LSSchedule::stripMask(LSCommand_t *c, idlist_t *list)
             if (nestLevel > 8) {
                 printf("[Line %d]: Strip lists nested too deep, are you putting a list in itself?\n", c ? c->lsc_line : 0);
             } else {
-                mask |= stripMask(c, sublist);
+                stripMask(c, sublist, mask);
             }
-        } else if (script->stripTable->findSym(*i, v)) {
-            mask |= 1LL << ((uint64_t) v);
+        } else if ((v = findStrip(*i)) >= 0) {
+            mask[v/32] |= 1UL << (((uint32_t) v) & 31);
         } else {
             printf("[Line %d]: Could not find strip name: '%s'\n",c ? c->lsc_line : 0, i->c_str());
             throw -1;
@@ -110,8 +129,6 @@ uint64_t LSSchedule::stripMask(LSCommand_t *c, idlist_t *list)
     }
 
     nestLevel--;
-
-    return mask;
 }
 
 void LSSchedule::setAnimation(LSCommand_t *cmd, schedcmd_t *scmd)
@@ -173,7 +190,7 @@ void LSSchedule::insert_do(double baseTime, LSCommand_t *c)
         // Fill in the strip mask, since this is a 'do' it works on all listed strips.
         if (c->lsc_strips) {
             nestLevel = 0;
-            scmd->stripmask = stripMask(c,c->lsc_strips);
+            stripMask(c,c->lsc_strips,scmd->stripmask);
         }
 
         // Set the animation
@@ -198,12 +215,25 @@ void LSSchedule::insert_cascade(double baseTime, LSCommand_t *c)
         schedcmd_t *scmd = newSchedCmd(baseTime, c);
         setAnimation(c,scmd);
         setColor(c, scmd);
-        scmd->stripmask = 1LL << ((uint64_t) *s);
+        for (int midx = 0; midx < MAXVSTRIPS/32; midx++) {
+            scmd->stripmask[midx] = 0;
+        }
+        uint32_t stripID = *s;
+        scmd->stripmask[stripID/32] = 1UL << (stripID & 31);
         scmd->time += c->opt_delay * (double) i;
 
         // Place in the final schedule.
         addSched(scmd);
     }
+}
+
+void LSSchedule::insert_comment(double baseTime, LSCommand_t *c)
+{
+    schedcmd_t *scmd = newSchedCmd(baseTime, c);
+    scmd->comment = c->lsc_comment.c_str();
+
+    // Place in the final schedule.
+    addSched(scmd);
 }
 
 void LSSchedule::insert_macro(double baseTime, LSCommand_t *c)
@@ -235,6 +265,9 @@ void LSSchedule::insert(double baseTime, LSCommand_t *c)
             break;
         case LSC_MACRO:
             insert_macro(baseTime, c);
+            break;
+        case LSC_COMMENT:
+            insert_comment(baseTime, c);
             break;
         default:
             break;
@@ -280,11 +313,11 @@ void LSSchedule::addSched(schedcmd_t *scmd)
     
 }
 
-static void fmttime(char *dest, double t)
+static void fmttime(char *dest, size_t len, double t)
 {
     unsigned int minutes = (int) (t / 60.0);
     double seconds = (t - ((double) minutes)*60.0);
-    sprintf(dest,"%2u:%05.02f",
+    snprintf(dest,len,"%2u:%05.02f",
             minutes,seconds);
 }
 #define MAXSTRIPS 31
@@ -307,24 +340,35 @@ void LSSchedule::printSchedEntry(schedcmd_t *scmd)
     char timestr[16];
     std::string name;
 
-    if (script->animTable->findVal(scmd->animation, name)) {
-        snprintf(animstr,sizeof(animstr),"%s",name.c_str());
+    fmttime(timestr,sizeof(tmpstr),scmd->time);
+
+    if (scmd->comment) {
+        printf("\n");
+        printf("Time %8s | Line %3d | %s\n",timestr,scmd->line,scmd->comment);
+        printf("\n");
     } else {
-        snprintf(animstr,sizeof(animstr),"%u",scmd->animation);
+        if (script->animTable->findVal(scmd->animation, name)) {
+            snprintf(animstr,sizeof(animstr),"%s",name.c_str());
+        } else {
+            snprintf(animstr,sizeof(animstr),"%u",scmd->animation);
+        }
+
+        if (script->colorTable->findVal(scmd->palette, name)) {
+            snprintf(colorstr,sizeof(colorstr),"%s",name.c_str());
+        } else {
+            if (scmd->palette & COLORFLG) {
+                snprintf(colorstr,sizeof(colorstr),"color 0x%06X", scmd->palette & 0x00FFFFFF);
+            } else {
+                snprintf(colorstr,sizeof(colorstr),"palette %2u",scmd->palette);
+            }
+        }
+
+        printf("Time %8s | Line %3d | %-15.15s %c | speed %5u | option %5u | %-14.14s %c | strips %s\n",timestr,scmd->line, animstr,
+               scmd->direction ? 'R' : 'F',
+               scmd->speed, scmd->option,
+               colorstr, (scmd->palette & COLORFLG ? ' ' : 'P'),
+               maskstr(tmpstr,(uint64_t)(scmd->stripmask[0])));  // XXX FIX ME XXX
     }
-
-    fmttime(timestr,scmd->time);
-
-    if (scmd->palette & COLORFLG) {
-        snprintf(colorstr,sizeof(colorstr),"color 0x%06X", scmd->palette & 0x00FFFFFF);
-    } else {
-        snprintf(colorstr,sizeof(colorstr),"palette %2u    ",scmd->palette);
-    }
-
-    printf("Time %8s | Line %3d | %-15.15s %c | speed %5u | option %5u | %s | strips %s\n",timestr,scmd->line, animstr,
-           scmd->direction ? 'R' : 'F',
-           scmd->speed, scmd->option,
-           colorstr, maskstr(tmpstr,scmd->stripmask));
 }
 
 

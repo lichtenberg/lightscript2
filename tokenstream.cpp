@@ -1,32 +1,31 @@
 #include <stdarg.h>
 
+#include <assert.h>
+
 #include "lstokens.h"
 
 #include "tokenstream.hpp"
-#include "lightscript.h"
+#include "lsinternal.h"
 
 LSToken::LSToken()
 {
     type = YYEMPTY;
     lineno = 0;
     fpval = 0;
-    intval = 0;
     strval = "";
 }
 
-LSToken::LSToken(lstoktype_t tt, int lno, lstoken_t *tok)
+LSToken::LSToken(lstoktype_t tt, char *fname, int lno, lstoken_t *tok)
 {
     LSToken();
 
     type = tt;
+    filename = fname;
     lineno = lno;
 
     switch (tt) {
         case tFLOAT:
             fpval = tok->f;
-            break;
-        case tWHOLE:
-            intval = tok->w;
             break;
         case tIDENT:
         case tSTRING:
@@ -64,7 +63,6 @@ static tokenmap_t tokenNames[] = {
     {COMMA,","},
     {SEMICOLON,";"},
     {tFLOAT,"floating-point-number"},
-    {tWHOLE,"number"},
     {tIDENT,"identifier"},
     {tSTRING,"string"},
     {tMUSIC,"music"},
@@ -73,11 +71,11 @@ static tokenmap_t tokenNames[] = {
     {tAT,"at"},
     {tDO,"do"},
     {tON,"on"},
-    {tCOUNT,"music"},
-    {tIDLE,"music"},
-    {tSPEED,"music"},
-    {tCASCADE,"music"},
-    {tBRIGHTNESS,"music"},
+    {tCOUNT,"count"},
+    {tIDLE,"idle"},
+    {tSPEED,"speed"},
+    {tCASCADE,"cascade"},
+    {tBRIGHTNESS,"brightness"},
     {tAS,"as"},
     {tMACRO,"macro"},
     {tPALETTE,"palette"},
@@ -87,6 +85,15 @@ static tokenmap_t tokenNames[] = {
     {tDEFMACRO,"defmacro"},
     {tDEFSTRIP,"defstrip"},
     {tDEFANIM,"defanim"},
+    {tCOMMENT,"comment"},
+    {tPHYSICAL,"physical"},
+    {tVIRTUAL,"virtual"},
+    {tVSTRIP,"vstrip"},
+    {tPSTRIP,"pstrip"},
+    {tCHANNEL,"channel"},
+    {tTYPE,"type"},
+    {tSTART,"start"},
+    {tSUBSTRIP,"substrip"},
     {YYEMPTY, NULL}
 };
 
@@ -142,7 +149,7 @@ void LSTokenStream::error(const char *str, ...)
 {
     va_list ap;
 
-    printf("[Line %d] ",currentLine());
+    printf("[%s:Line %d] ",currentFile(),currentLine());
     va_start(ap,str);
     vprintf(str,ap);
     va_end(ap);
@@ -226,8 +233,8 @@ int LSTokenStream::matchInt(void)
 {
     int ret;
     
-    if (current() == tWHOLE) {
-        ret = tokens.front().getInt();
+    if (current() == tFLOAT) {
+        ret = (int) tokens.front().getFloat();
         advance();
         return ret;
     } else {
@@ -297,4 +304,15 @@ int LSTokenStream::currentLine(void)
 
     // Pick off the first element and return its type.
     return tokens.front().getLine();
+}
+
+char *LSTokenStream::currentFile(void)
+{
+    // If the stream is empty just return EOF
+    if (tokens.empty()) {
+        return 0;
+    }
+
+    // Pick off the first element and return its type.
+    return tokens.front().getFileName();
 }

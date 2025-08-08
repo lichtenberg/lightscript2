@@ -1,0 +1,13 @@
+
+idle IDLEWHITE;
+
+at 0.0 do MOVINGGRADIENT on PERIMETER speed 1500;
+
+at 3.0 do SOUNDPULSE on ULBOX speed 500;
+at 4.0 do SOUNDPULSE on ULBOX speed 500;
+at 5.0 do SOUNDPULSE on ULBOX speed 500;
+at 6.0 do SOUNDPULSE on ULBOX speed 500;
+at 7.0 do SOUNDPULSE on ULBOX speed 500;
+
+at 20.0 do OFF on ALLSTRIPS;
+
