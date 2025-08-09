@@ -7,35 +7,36 @@
 #include "tokenstream.hpp"
 #include "lsinternal.h"
 
+// tokenstream.cpp
 LSToken::LSToken()
-{
-    type = YYEMPTY;
-    lineno = 0;
-    fpval = 0;
-    strval = "";
-}
+    : type(YYEMPTY), fpval(0.0), strval(), filename(), lineno(0) {}
 
-LSToken::LSToken(lstoktype_t tt, char *fname, int lno, lstoken_t *tok)
+LSToken::LSToken(lstoktype_t tt, const char* fname, int lno, lstoken_t* tok)
+    : LSToken()  // proper delegating constructor
 {
-    LSToken();
-
     type = tt;
-    filename = fname;
+    filename = fname ? fname : "";
     lineno = lno;
 
     switch (tt) {
         case tFLOAT:
-            fpval = tok->f;
+            fpval = tok ? tok->f : 0.0;
             break;
         case tIDENT:
         case tSTRING:
-            if (tok->str) strval = tok->str;
+            if (tok && tok->str) {
+                strval = tok->str;   // copy bytes to std::string
+                free(tok->str);      // *** free strdup buffer from lexer ***
+                tok->str = nullptr;
+            }
             break;
         default:
             break;
     }
-                       
 }
+
+
+
 
 
 LSToken::~LSToken()
@@ -129,21 +130,69 @@ LSTokenStream::~LSTokenStream()
 }
 
 
-void LSTokenStream::add(LSToken& tok)
-{
+
+
+
+
+
+
+
+// tokenstream.cpp
+lstoktype_t LSTokenStream::advance() {
+    if (head >= tokens.size()) return YYEOF;
+    lstoktype_t tt = tokens[head].getType();
+    ++head;
+    return tt;
+}
+
+lstoktype_t LSTokenStream::current() {
+    return (head < tokens.size()) ? tokens[head].getType() : YYEOF;
+}
+
+int LSTokenStream::currentLine() {
+    return (head < tokens.size()) ? tokens[head].getLine() : 0;
+}
+
+const char* LSTokenStream::currentFile() {
+    return (head < tokens.size()) ? tokens[head].getFileName() : nullptr;
+}
+
+bool LSTokenStream::get(LSToken& tok) {
+    if (head >= tokens.size()) return false;
+    tok = tokens[head];
+    return true;
+}
+
+void LSTokenStream::add(LSToken& tok) {
     tokens.push_back(tok);
 }
 
-lstoktype_t LSTokenStream::advance(void)
-{
-    lstoktype_t tt = YYEOF;
-
-    if (!tokens.empty()) {
-        tt = current();
-        tokens.erase(tokens.begin());
-    }
-    return tt;
+void LSTokenStream::reset() {
+    head = 0;
+    tokens.clear();        // destroys tokens, frees all their strings
+    tokens.shrink_to_fit(); // optional: actually return capacity to the OS
 }
+
+
+
+bool LSTokenStream::empty() const {
+    return head >= tokens.size();
+}
+
+const LSToken& LSTokenStream::cur() const {
+    // assert or handle EOF as you prefer
+    assert(!empty());
+    return tokens[head];
+}
+
+
+LSToken& LSTokenStream::cur() {
+    assert(!empty());
+    return tokens[head];
+}
+
+
+
 
 void LSTokenStream::error(const char *str, ...)
 {
@@ -202,7 +251,7 @@ std::string LSTokenStream::matchIdent(void)
     std::string ret;
 
     if (current() == tIDENT) {
-        ret = tokens.front().getString();
+        ret = cur().getString();
         advance();
         return ret;
     } else {
@@ -218,7 +267,7 @@ std::string LSTokenStream::matchString(void)
     std::string ret;
 
     if (current() == tSTRING) {
-        ret = tokens.front().getString();
+        ret = cur().getString();
         advance();
         return ret;
     } else {
@@ -234,7 +283,7 @@ int LSTokenStream::matchInt(void)
     int ret;
     
     if (current() == tFLOAT) {
-        ret = (int) tokens.front().getFloat();
+        ret = (int) cur().getFloat();
         advance();
         return ret;
     } else {
@@ -248,7 +297,7 @@ double LSTokenStream::matchFloat(void)
     double ret;
     
     if (current() == tFLOAT) {
-        ret = tokens.front().getFloat();
+        ret = cur().getFloat();
         advance();
         return ret;
     } else {
@@ -271,48 +320,5 @@ bool LSTokenStream::predict(lstoktype_t set[])
     return false;
 }
 
-bool LSTokenStream::get(LSToken& tok)
-{
-    // If the stream is empty just return EOF
-    if (tokens.empty()) {
-        return false;
-    }
-
-    // Pick off the first element and return its type.
-    tok = tokens.front();
-    return true;
-}
 
 
-lstoktype_t LSTokenStream::current(void)
-{
-    // If the stream is empty just return EOF
-    if (tokens.empty()) {
-        return YYEOF;
-    }
-
-    // Pick off the first element and return its type.
-    return tokens.front().getType();
-}
-
-int LSTokenStream::currentLine(void)
-{
-    // If the stream is empty just return EOF
-    if (tokens.empty()) {
-        return 0;
-    }
-
-    // Pick off the first element and return its type.
-    return tokens.front().getLine();
-}
-
-char *LSTokenStream::currentFile(void)
-{
-    // If the stream is empty just return EOF
-    if (tokens.empty()) {
-        return 0;
-    }
-
-    // Pick off the first element and return its type.
-    return tokens.front().getFileName();
-}
