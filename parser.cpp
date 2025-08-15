@@ -23,6 +23,11 @@ LSParser::LSParser(LSTokenStream *stream, LSScript_t *scr)
     script = scr;
 }
 
+void LSParser::init(LSTokenStream *stream, LSScript_t *scr)
+{
+    tokenStream = stream;
+    script = scr;
+}
 
 int LSParser::parse(void)
 {
@@ -143,7 +148,7 @@ void LSParser::parseMacroBody(idlist_t * &idl, cmdlist_t * &cmdl)
     idl = idlist;
 }
 
-void LSParser::parseOption(LSCommand_t *cmd)
+void LSParser::parseOption(LSCommand_t& cmd)
 {
     lstoktype_t terminals[] = {
         tON,
@@ -177,71 +182,71 @@ void LSParser::parseOption(LSCommand_t *cmd)
         case tON:
             if (tokenStream->current() == tIDENT) {
                 // Just a single identifier
-                cmd->lsc_strips = parseIDSingle();
+                cmd.lsc_strips.reset(parseIDSingle());
             } else {
                 // list of identifiers.
-                cmd->lsc_strips = parseIDList();
+                cmd.lsc_strips.reset(parseIDList());
             }
             break;
         case tCASCADE:
-            cmd->lsc_type = LSC_CASCADE;
-            cmd->lsc_animation = tokenStream->matchIdent();
+            cmd.lsc_type = LSC_CASCADE;
+            cmd.lsc_animation = tokenStream->matchIdent();
             break;
         case tDO:
-            cmd->lsc_type = LSC_DO;
-            cmd->lsc_animation = tokenStream->matchIdent();
+            cmd.lsc_type = LSC_DO;
+            cmd.lsc_animation = tokenStream->matchIdent();
             break;
         case tCOMMENT:
-            cmd->lsc_type = LSC_COMMENT;
-            cmd->lsc_comment = tokenStream->matchString();
+            cmd.lsc_type = LSC_COMMENT;
+            cmd.lsc_comment = tokenStream->matchString();
             break;
         case tMACRO:
-            cmd->lsc_type = LSC_MACRO;
-            cmd->lsc_macro = tokenStream->matchIdent();
+            cmd.lsc_type = LSC_MACRO;
+            cmd.lsc_macro = tokenStream->matchIdent();
             if (tokenStream->current() == CHARTOKEN('(')) {
                 // Parse arguments here
-                cmd->lsc_macroArgs = parseValueList();
+                cmd.lsc_macroArgs.reset(parseValueList());
             }
             break;
         case tBRIGHTNESS:
-            cmd->opt_brightness = tokenStream->matchInt();
+            cmd.opt_brightness = tokenStream->matchInt();
             break;
         case tDELAY:
-            cmd->opt_delay = tokenStream->matchFloat();
+            cmd.opt_delay = tokenStream->matchFloat();
             break;
         case tSPEED:
-            cmd->opt_speed = tokenStream->matchInt();
+            cmd.opt_speed = tokenStream->matchInt();
             break;
         case tCOUNT:
-            cmd->opt_count = tokenStream->matchInt();
+            cmd.opt_count = tokenStream->matchInt();
             break;
         case tOPTION:
-            cmd->opt_option = tokenStream->matchInt();
+            cmd.opt_option = tokenStream->matchInt();
             break;
         case tPALETTE:
             if (tokenStream->current() == tFLOAT) {
-                cmd->opt_color = tokenStream->matchInt();
-                cmd->opt_colorIdent = "";
+                cmd.opt_color = tokenStream->matchInt();
+                cmd.opt_colorIdent = "";
             } else {
-                cmd->opt_colorIdent = tokenStream->matchIdent();
+                cmd.opt_colorIdent = tokenStream->matchIdent();
             }
             break;
         case tCOLOR:
             if (tokenStream->current() == tFLOAT) {
-                cmd->opt_color = tokenStream->matchInt() | COLORFLG;
-                cmd->opt_colorIdent = "";
+                cmd.opt_color = tokenStream->matchInt() | COLORFLG;
+                cmd.opt_colorIdent = "";
             } else {
-                cmd->opt_colorIdent = tokenStream->matchIdent();
+                cmd.opt_colorIdent = tokenStream->matchIdent();
             }
             break;
         case tREVERSE:
-            cmd->opt_reverse = true;
+            cmd.opt_reverse = true;
             break;
         case tDIRECTION:
             // This is a different way to specify the directiont that can be parameterized
             {
                 int dir = tokenStream->matchInt();
-                cmd->opt_reverse = (dir) < 0 ? true : false;
+                cmd.opt_reverse = (dir) < 0 ? true : false;
             }
             break;
         default:
@@ -250,7 +255,7 @@ void LSParser::parseOption(LSCommand_t *cmd)
 
 }
 
-void LSParser::parseOptionList(LSCommand_t *cmd)
+void LSParser::parseOptionList(LSCommand_t& cmd)
 {
     while (tokenStream->current() != CHARTOKEN(';')) {
         parseOption(cmd);
@@ -258,7 +263,7 @@ void LSParser::parseOptionList(LSCommand_t *cmd)
 }
 
 
-LSCommand_t *LSParser::parseScriptCmd()
+std::unique_ptr<LSCommand_t> LSParser::parseScriptCmd()
 {
     lstoktype_t terminals[] = {
         tAT,
@@ -280,12 +285,10 @@ LSCommand_t *LSParser::parseScriptCmd()
     std::string id;
     int v;
 
-    LSCommand_t *cmd;
+    std::unique_ptr<LSCommand_t> cmd;
 
     // Allocate a command.
-    cmd = new LSCommand_t;
-
-    memset(cmd,0,sizeof(LSCommand_t));
+    cmd = std::make_unique<LSCommand_t>();
 
     cmd->opt_color = 0x40;              // Default to RGB palette unless overridden
 
@@ -306,7 +309,7 @@ LSCommand_t *LSParser::parseScriptCmd()
             cmd->lsc_type = LSC_DO;
             cmd->lsc_from = tokenStream->matchFloat();
             cmd->lsc_to = cmd->lsc_from;
-            parseOptionList(cmd);
+            parseOptionList(*cmd);
             cmd->lsc_count = 1;
             save = true;
             break;
@@ -315,7 +318,7 @@ LSCommand_t *LSParser::parseScriptCmd()
             cmd->lsc_from = tokenStream->matchFloat();
             tokenStream->match(tTO);
             cmd->lsc_to = tokenStream->matchFloat();
-            parseOptionList(cmd);
+            parseOptionList(*cmd);
             cmd->lsc_count = cmd->opt_count;
             save = true;
             break;
@@ -324,9 +327,9 @@ LSCommand_t *LSParser::parseScriptCmd()
             break;
         case tIDLE:
             script->lss_idleanimation = tokenStream->matchIdent();
-            parseOptionList(cmd);
-            script->lss_idlestrips = cmd->lsc_strips;
-            cmd->lsc_strips = NULL;
+            parseOptionList(*cmd);
+            script->lss_idlestrips = std::move(cmd->lsc_strips);
+            cmd->lsc_strips.reset();
             break;
         case tDEFSTRIP:
             id = tokenStream->matchIdent();
@@ -388,8 +391,7 @@ LSCommand_t *LSParser::parseScriptCmd()
     tokenStream->match(CHARTOKEN(';'));
 
     if (!save) {
-        delete cmd;
-        cmd = NULL;
+        cmd.reset();
     }
 
     return cmd;
@@ -643,12 +645,17 @@ void LSParser::parseVirtualStrips(void)
 
 void LSParser::parseTopLevel()
 {
-    LSCommand_t *cmd;
+    std::unique_ptr<LSCommand_t> cmd;
     
     while (tokenStream->current() != YYEOF) {
         cmd = parseScriptCmd();
         if (cmd) {
-            script->lss_commands.push_back(cmd);
+            script->lss_commands.push_back(std::move(cmd));
         }
     }
+}
+
+int LSParser::currentLine(void)
+{
+    return 0;
 }

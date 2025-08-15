@@ -129,6 +129,12 @@ LSTokenStream::~LSTokenStream()
 
 }
 
+void LSTokenStream::reset()
+{
+    head = 0;                 // rewind cursor
+    tokens.clear();           // destroys tokens; strings free themselves
+    tokens.shrink_to_fit();   // give capacity back between runs
+}
 
 
 
@@ -167,11 +173,6 @@ void LSTokenStream::add(LSToken& tok) {
     tokens.push_back(tok);
 }
 
-void LSTokenStream::reset() {
-    head = 0;
-    tokens.clear();        // destroys tokens, frees all their strings
-    tokens.shrink_to_fit(); // optional: actually return capacity to the OS
-}
 
 
 

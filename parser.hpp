@@ -16,16 +16,18 @@ private:
 
 public:
     int parse();
+    void init(LSTokenStream *ts, LSScript_t *ls);
+    void parseTopLevel();
+    int currentLine(void);
     
 private:
-    void parseTopLevel();
-    LSCommand_t *parseScriptCmd();
+    std::unique_ptr<LSCommand_t> parseScriptCmd();
     idlist_t *parseIDList();
     idlist_t *parseIDSingle();
     idlist_t *parseArgList();
     vallist_t *parseValueList();
-    void parseOption(LSCommand_t *cmd);
-    void parseOptionList(LSCommand_t *cmd);
+    void parseOption(LSCommand_t& cmd);
+    void parseOptionList(LSCommand_t& cmd);
     void parseMacroBody(idlist_t * &idl, cmdlist_t * &cmdl);
     void parsePhysicalStrips(void);
     void parseVirtualStrips(void);

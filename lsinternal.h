@@ -10,6 +10,7 @@
 
 
 #pragma once
+#include <memory>
 
 /*
  * lightscript stuff
@@ -47,13 +48,13 @@ typedef struct LSCommand_s {
 
     // Macro name (if it's a macro call)
     std::string lsc_macro;
-    vallist_t *lsc_macroArgs;
+    std::unique_ptr<vallist_t> lsc_macroArgs;
 
     std::string lsc_comment;
     // Animation
     std::string lsc_animation;
     // Strip list
-    idlist_t *lsc_strips;
+    std::unique_ptr<idlist_t> lsc_strips;
 
 
     // Options
@@ -69,7 +70,7 @@ typedef struct LSCommand_s {
     bool opt_reverse;
     
 } LSCommand_t;
-typedef std::vector<LSCommand_t *> cmdlist_t;
+typedef std::vector<std::unique_ptr<LSCommand_t>> cmdlist_t;
 typedef std::vector<int> stripvec_t;
 
 
@@ -79,9 +80,10 @@ typedef struct LSMacro_s {
     cmdlist_t *commands;
 } LSMacro_t;
 
-class LSSymTab;
-class LSMacroTab;
-class LSStripListTab;
+#include "symtab.hpp"
+//class LSSymTab;
+//class LSMacroTab;
+//class LSStripListTab;
 
 
 
@@ -102,7 +104,7 @@ typedef struct VStrip_s {
 typedef struct LSScript_s {
     // Global stuff about the script
     std::string lss_idleanimation;
-    idlist_t *lss_idlestrips;
+    std::unique_ptr<idlist_t> lss_idlestrips;
     std::string lss_music;
 
     // Set of script commands
@@ -125,4 +127,16 @@ typedef struct LSScript_s {
     // Virtual Strips
     int virtualStripCount;
     VStrip_t virtualStrips[MAXVSTRIPS];
+
+    void init() {
+        symbolTable = new LSSymTab("symbol");
+        animTable = new LSSymTab("animations");
+        colorTable = new LSSymTab("colors");
+        stripListTable = new LSStripListTab;
+        macroTable = new LSMacroTab;
+
+    }
+
+    void reset() {
+    }
 } LSScript_t;

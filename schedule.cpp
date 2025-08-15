@@ -1,20 +1,20 @@
 #include <vector>
 #include <string>
+#include <memory>
+#include <algorithm>
 #include <assert.h>
 #include "schedule.hpp"
 #include "symtab.hpp"
 
 
 
-LSSchedule::LSSchedule(LSScript_t *s)
+LSSchedule::LSSchedule()
 {
-    script = s;
 }
 
 
 LSSchedule::~LSSchedule()
 {
-
 }
 
 #if 0
@@ -40,13 +40,10 @@ int LSSchedule::findStrip(std::string name)
 }
 
 
-schedcmd_t *LSSchedule::newSchedCmd(double baseTime, LSCommand_t *cmd)
+std::unique_ptr<schedcmd_t> LSSchedule::newSchedCmd(double baseTime, LSCommand_t *cmd)
 {
     // Create a new empty schedule record.
-    schedcmd_t *scmd = new schedcmd_t;
-
-    memset(scmd,0,sizeof(schedcmd_t));
-
+    auto scmd = std::make_unique<schedcmd_t>();
     // Fill in what we know.
 
     if (cmd) {
@@ -131,13 +128,13 @@ void LSSchedule::stripMask(LSCommand_t *c, idlist_t *list,uint32_t *mask)
     nestLevel--;
 }
 
-void LSSchedule::setAnimation(LSCommand_t *cmd, schedcmd_t *scmd)
+void LSSchedule::setAnimation(LSCommand_t *cmd, schedcmd_t& scmd)
 {
     int v;
 
     // Fill in the animation.
     if (script->animTable->findSym(cmd->lsc_animation, v)) {
-        scmd->animation = v;
+        scmd.animation = v;
     }
     else {
         printf("[Line %d]: Could not find animation '%s', is it defined in your config file?\n",
@@ -147,18 +144,18 @@ void LSSchedule::setAnimation(LSCommand_t *cmd, schedcmd_t *scmd)
     }
 }
 
-void LSSchedule::setColor(LSCommand_t *cmd, schedcmd_t *scmd)
+void LSSchedule::setColor(LSCommand_t *cmd, schedcmd_t& scmd)
 {
     if (cmd->opt_colorIdent != "") {
         int v;
         if (script->colorTable->findSym(cmd->opt_colorIdent, v)) {
-            scmd->palette = v;
+            scmd.palette = v;
         } else {
             printf("[Line %d]: Color not found: '%s'\n",cmd->lsc_line,cmd->opt_colorIdent.c_str());
             throw -1;
         }
     } else {
-        scmd->palette = cmd->opt_color;
+        scmd.palette = cmd->opt_color;
    }
 }
 
@@ -185,20 +182,20 @@ void LSSchedule::insert_do(double baseTime, LSCommand_t *c)
         }
 
         // Create a template schedule command
-        schedcmd_t *scmd = newSchedCmd(baseTime + t, c);
+        auto scmd = newSchedCmd(baseTime + t, c);
 
         // Fill in the strip mask, since this is a 'do' it works on all listed strips.
-        if (c->lsc_strips) {
+        if (c->lsc_strips.get()) {
             nestLevel = 0;
-            stripMask(c,c->lsc_strips,scmd->stripmask);
+            stripMask(c,c->lsc_strips.get(),scmd->stripmask);
         }
 
         // Set the animation
-        setAnimation(c, scmd);
-        setColor(c, scmd);
+        setAnimation(c, *scmd);
+        setColor(c, *scmd);
 
         // Place in the final schedule.
-        addSched(scmd);
+        addSched(std::move(scmd));
     }
     
 }
@@ -209,12 +206,12 @@ void LSSchedule::insert_cascade(double baseTime, LSCommand_t *c)
     stripvec_t::iterator s;
     int i = 0;
 
-    vec = stripVec(c,c->lsc_strips);
+    vec = stripVec(c,c->lsc_strips.get());
 
     for (s = vec->begin(); s < vec->end(); s++,i++) {
-        schedcmd_t *scmd = newSchedCmd(baseTime, c);
-        setAnimation(c,scmd);
-        setColor(c, scmd);
+        auto scmd = newSchedCmd(baseTime, c);
+        setAnimation(c, *scmd);
+        setColor(c, *scmd);
         for (int midx = 0; midx < MAXVSTRIPS/32; midx++) {
             scmd->stripmask[midx] = 0;
         }
@@ -223,17 +220,17 @@ void LSSchedule::insert_cascade(double baseTime, LSCommand_t *c)
         scmd->time += c->opt_delay * (double) i;
 
         // Place in the final schedule.
-        addSched(scmd);
+        addSched(std::move(scmd));
     }
 }
 
 void LSSchedule::insert_comment(double baseTime, LSCommand_t *c)
 {
-    schedcmd_t *scmd = newSchedCmd(baseTime, c);
-    scmd->comment = c->lsc_comment.c_str();
+    auto scmd = newSchedCmd(baseTime, c);
+    scmd->comment = c->lsc_comment;
 
     // Place in the final schedule.
-    addSched(scmd);
+    addSched(std::move(scmd));
 }
 
 void LSSchedule::insert_macro(double baseTime, LSCommand_t *c)
@@ -242,9 +239,8 @@ void LSSchedule::insert_macro(double baseTime, LSCommand_t *c)
     idlist_t *args;
 
     if (script->macroTable->findMacro(c->lsc_macro, args, commands)) {
-        int i;
-        for (i = 0; i < commands->size(); i++) {
-            LSCommand_t *mc = commands->at(i);
+        for (auto& up : *commands) {
+            LSCommand_t* mc = up.get();
             insert(c->lsc_from, mc);
         }
     } else {
@@ -279,16 +275,18 @@ bool LSSchedule::generate1(void)
     int i;
 
     for (i = 0; i < script->lss_commands.size(); i++) {
-        LSCommand_t *cmd = script->lss_commands[i];
+        LSCommand_t *cmd = script->lss_commands[i].get();
         insert(0.0, cmd);
     }
     
     return true;
 }
 
-bool LSSchedule::generate(void)
+bool LSSchedule::generate(const LSScript_t& theScript)
 {
     bool result = true;
+
+    script = &theScript;
 
     try {
         generate1();
@@ -299,7 +297,7 @@ bool LSSchedule::generate(void)
     return result;
 }
 
-void LSSchedule::addSched(schedcmd_t *scmd)
+void LSSchedule::addSched(std::unique_ptr<schedcmd_t> scmd)
 {
     schedule_t::iterator inshere;
 
@@ -309,7 +307,7 @@ void LSSchedule::addSched(schedcmd_t *scmd)
             break;
         }
     }
-    schedule.insert(inshere, scmd);
+    schedule.insert(inshere, std::move(scmd));
     
 }
 
@@ -332,7 +330,7 @@ static char *maskstr(char *str,uint32_t m)
     return str;
 }
 
-void LSSchedule::printSchedEntry(schedcmd_t *scmd)
+void LSSchedule::printSchedEntry(const schedcmd_t *scmd)
 {
     char tmpstr[MAXSTRIPS+1];
     char animstr[32];
@@ -342,9 +340,9 @@ void LSSchedule::printSchedEntry(schedcmd_t *scmd)
 
     fmttime(timestr,sizeof(tmpstr),scmd->time);
 
-    if (scmd->comment) {
+    if (!scmd->comment.empty()) {
         printf("\n");
-        printf("Time %8s | Line %3d | %s\n",timestr,scmd->line,scmd->comment);
+        printf("Time %8s | Line %3d | %s\n",timestr,scmd->line,scmd->comment.c_str());
         printf("\n");
     } else {
         if (script->animTable->findVal(scmd->animation, name)) {
@@ -377,7 +375,7 @@ void LSSchedule::printSched(void)
     schedule_t::iterator inshere;
 
     for (inshere = schedule.begin(); inshere < schedule.end(); inshere++) {
-        schedcmd_t *scmd = *inshere;
+        schedcmd_t *scmd = inshere->get();
 
         printSchedEntry(scmd);
     }
@@ -386,10 +384,16 @@ void LSSchedule::printSched(void)
 
 int LSSchedule::size(void)
 {
-    return schedule.size();
+    return static_cast<int>(schedule.size());
 }
 
 schedcmd_t *LSSchedule::getAt(int idx)
 {
-    return schedule[idx];
+    return schedule[idx].get();
+}
+
+void LSSchedule::reset()
+{
+    schedule.clear();         // vector<unique_ptr<...>> — frees entries
+    schedule.shrink_to_fit(); // optional
 }

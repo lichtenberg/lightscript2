@@ -48,6 +48,7 @@ private:
     std::string errorStr;
 
 public:
+    void reset(void);
     void add(LSToken& tok);
     lstoktype_t advance(void);
     void match(lstoktype_t tt);
@@ -67,9 +68,6 @@ public:
     bool empty() const;
     const char *tokenStr(lstoktype_t tt);
     const char *setStr(lstoktype_t set[]);
-
-    // reset the stream for next use
-    void reset(void);
 
 private:
     std::vector<LSToken> tokens;

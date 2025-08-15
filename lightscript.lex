@@ -9,6 +9,8 @@
     ********************************************************************* */
 
 %option noyywrap yylineno
+%option header-file="ls_lexer.h"
+
 %{
 #include "lstokens.h"
 #define YY_NO_INPUT

@@ -24,7 +24,6 @@
 #include "symtab.hpp"
 
 #include "lsinternal.h"
-#include "musicplayer.h"
 
 #include <sys/socket.h>
 #include <netinet/in.h>
@@ -33,14 +32,77 @@
 #include <netinet/tcp.h>
 #include <netdb.h>
 
+#include "playback.h"
+#import <Foundation/Foundation.h>
+#import <AVFoundation/AVFoundation.h>
+
 
 #define MSGSIZE 16
 
-static int device = -1;
-static time_t epoch;
-static int offAnim = 0;
-double start_offset = 0;
-static bool play_please_stop = false;
+
+Playback::Playback()
+{
+    device = -1;
+    epoch = 0;
+    offAnim = 0;
+    start_offset = 0;
+    play_please_stop = false;
+    musicpos = 0;
+    musicend = 0;
+    curscript = NULL;
+    cursched = NULL;
+}
+
+Playback::~Playback()
+{
+}
+
+
+static int playMusicFile(const char *filename, Playback *player, double start_cue)
+{
+    AVAudioPlayer *audioPlayer;
+    NSString *path = [NSString stringWithFormat:@"file://%@", [NSString stringWithCString:filename encoding:NSUTF8StringEncoding]];
+    NSURL *soundUrl = [NSURL URLWithString:path];
+    NSError *error;
+    bool playIt = false;
+    
+    //NSLog(@"Music playback URL = %@",[soundUrl absoluteURL]);
+    audioPlayer = [[AVAudioPlayer alloc] initWithContentsOfURL:soundUrl error:&error];
+
+    
+    if (error) {
+           NSLog(@"Error in audioPlayer: %@", [error localizedDescription]);
+           return -1;
+       } else {
+           [audioPlayer prepareToPlay];
+           playIt = true;
+           //_audioPlayer.enableRate = YES;
+           //_audioPlayer.volume = 0.5f;
+           //_audioPlayer.rate = 1.0f;
+       }
+    
+    if (playIt) {
+        [audioPlayer play];
+        if (start_cue != 0.0) {
+            audioPlayer.currentTime = start_cue;
+        }
+
+        while (audioPlayer.playing) {
+            NSTimeInterval playTime = [audioPlayer currentTime];
+            if (player->player_callback(playTime) == 0) {
+                break;
+            }
+            [NSThread sleepForTimeInterval:0.01];
+        }
+
+        [audioPlayer stop];
+    }
+
+    return 0;
+}
+
+
+
 
 static void msleep(int ms)
 {
@@ -51,7 +113,7 @@ static void msleep(int ms)
     nanosleep(&ts,NULL);
 }
 
-static double current_time(LSScript_t *script)
+double Playback::current_time(void)
 {
     struct timeval tv;
 
@@ -61,7 +123,7 @@ static double current_time(LSScript_t *script)
 }
 
 
-static int send_command(lsmessage_t *msg)
+static int send_command(int device, lsmessage_t *msg)
 {
     uint8_t sync[2];
     int txlen;
@@ -109,7 +171,7 @@ static int readdata(int device, uint8_t *buf, int len)
 
 #define STATE_SYNC1 0
 #define STATE_SYNC2 1
-static int recv_response(lsmessage_t *msg)
+static int recv_response(int device, lsmessage_t *msg)
 {
     uint8_t b;
     int res;
@@ -122,7 +184,7 @@ static int recv_response(lsmessage_t *msg)
 
     #if 0
     for (;;) {
-        if (readdata(device,&b,1) == 1) { printf("%02X ",b); fflush(stdout);}
+        if (readdata(device, &b,1) == 1) { printf("%02X ",b); fflush(stdout);}
         else {
             printf("read error\n");
             exit(1);
@@ -131,7 +193,7 @@ static int recv_response(lsmessage_t *msg)
     #endif
 
     while (reading) {
-        if (readdata(device,&b,1) < 1) {
+        if (readdata(device, &b,1) < 1) {
             printf("Read error from Picolight [sync]\n");
             exit(1);
         }
@@ -170,24 +232,7 @@ static int recv_response(lsmessage_t *msg)
             
 }
 
-void check_version(void)
-{
-    lsmessage_t msg;
-
-    msg.ls_command = LSCMD_VERSION;
-    msg.ls_length = 0;
-
-    send_command(&msg);
-    recv_response(&msg);
-
-    printf("Protocol version: %u     Firmware Version %u.%u    Hardware %u\n",
-           msg.info.ls_version.lv_protocol,
-           msg.info.ls_version.lv_major,
-           msg.info.ls_version.lv_minor,
-           msg.info.ls_version.lv_hwtype);
-}
-
-static void send_animate(uint32_t *strips, uint16_t anim,  uint16_t speed, uint16_t option, uint32_t color)
+static void send_animate(int device, uint32_t *strips, uint16_t anim,  uint16_t speed, uint16_t option, uint32_t color)
 {
     lsmessage_t msg;
 
@@ -204,10 +249,30 @@ static void send_animate(uint32_t *strips, uint16_t anim,  uint16_t speed, uint1
     msg.ls_length = sizeof(lsanimate_t);
     msg.ls_command = LSCMD_ANIMATE;
 
-    send_command(&msg);
+    send_command(device, &msg);
 }
 
-static void upload_config(LSScript_t *script)
+
+void Playback::check_version(void)
+{
+    lsmessage_t msg;
+
+    msg.ls_command = LSCMD_VERSION;
+    msg.ls_length = 0;
+
+    send_command(device, &msg);
+    recv_response(device, &msg);
+
+    printf("Protocol version: %u     Firmware Version %u.%u    Hardware %u\n",
+           msg.info.ls_version.lv_protocol,
+           msg.info.ls_version.lv_major,
+           msg.info.ls_version.lv_minor,
+           msg.info.ls_version.lv_hwtype);
+}
+
+
+// private
+int Playback::upload_config(LSScript_t *script)
 {
     lsmessage_t txMessage;
     lsmessage_t rxMessage;
@@ -218,8 +283,8 @@ static void upload_config(LSScript_t *script)
     memset(&txMessage,0,sizeof(txMessage));
     txMessage.ls_command = LSCMD_RESET;
     txMessage.ls_length = 0;
-    send_command(&txMessage);
-    recv_response(&rxMessage);
+    send_command(device, &txMessage);
+    recv_response(device, &rxMessage);
 
     printf("Sending physical strips\n");
     // Send over the physical strips
@@ -230,8 +295,8 @@ static void upload_config(LSScript_t *script)
             txMessage.ls_command = LSCMD_SETPSTRIP;
             txMessage.ls_length = sizeof(lspstrip_t);
             txMessage.info.ls_pstrip.lp_pstrip = info;
-            send_command(&txMessage);
-            recv_response(&rxMessage);
+            send_command(device, &txMessage);
+            recv_response(device, &rxMessage);
         }
     }
             
@@ -248,8 +313,8 @@ static void upload_config(LSScript_t *script)
         memcpy(txMessage.info.ls_vstrip.lv_substrips,
                vstrip->substrips,
                vstrip->substripCount * sizeof(uint32_t));
-        send_command(&txMessage);
-        recv_response(&rxMessage);
+        send_command(device, &txMessage);
+        recv_response(device, &rxMessage);
     }
             
     printf("Initializing panel with new config\n");
@@ -257,12 +322,14 @@ static void upload_config(LSScript_t *script)
     memset(&txMessage,0,sizeof(txMessage));
     txMessage.ls_command = LSCMD_INIT;
     txMessage.ls_length = 0;
-    send_command(&txMessage);
-    recv_response(&rxMessage);
+    send_command(device, &txMessage);
+    recv_response(device, &rxMessage);
+
+    return 0;
 }
 
 
-int env_getenv(char *name, char *val, int vallen)
+int Playback::env_getenv(char *name, char *val, int vallen)
 {
     lsmessage_t txMessage;
     lsmessage_t rxMessage;
@@ -271,8 +338,8 @@ int env_getenv(char *name, char *val, int vallen)
     txMessage.ls_length = sizeof(lseeprom_t);
     txMessage.info.ls_eeprom.le_subcmd = LSEEPROM_GETENV;
     strncpy((char *) txMessage.info.ls_eeprom.le_data, name, LSEEPROM_MAXDATA);
-    send_command(&txMessage);
-    recv_response(&rxMessage);
+    send_command(device, &txMessage);
+    recv_response(device, &rxMessage);
 
     if (rxMessage.info.ls_eeprom.le_data[0] == 0) {
         return -1;
@@ -282,7 +349,7 @@ int env_getenv(char *name, char *val, int vallen)
     return 0;
 }
 
-int env_setenv(char *name, char *val)
+int Playback::env_setenv(char *name, char *val)
 {
     lsmessage_t txMessage;
     lsmessage_t rxMessage;
@@ -291,12 +358,12 @@ int env_setenv(char *name, char *val)
     txMessage.ls_length = sizeof(lseeprom_t);
     txMessage.info.ls_eeprom.le_subcmd = LSEEPROM_SETENV;
     snprintf((char *) txMessage.info.ls_eeprom.le_data, LSEEPROM_MAXDATA, "%s=%s",name,val);
-    send_command(&txMessage);
-    recv_response(&rxMessage);
+    send_command(device, &txMessage);
+    recv_response(device, &rxMessage);
     return 0;
 }
 
-int env_listenv(char *val, int vallen)
+int Playback::env_listenv(char *val, int vallen)
 {
     lsmessage_t txMessage;
     lsmessage_t rxMessage;
@@ -305,8 +372,8 @@ int env_listenv(char *val, int vallen)
     txMessage.ls_length = sizeof(lseeprom_t);
     txMessage.info.ls_eeprom.le_subcmd = LSEEPROM_PRINTENV;
     txMessage.info.ls_eeprom.le_data[0] = 0;
-    send_command(&txMessage);
-    recv_response(&rxMessage);
+    send_command(device, &txMessage);
+    recv_response(device, &rxMessage);
 
     if (rxMessage.info.ls_eeprom.le_data[0] == 0) {
         return -1;
@@ -316,7 +383,7 @@ int env_listenv(char *val, int vallen)
     return 0;
 }
 
-int env_eraseall(void)
+int Playback::env_eraseall(void)
 {
     lsmessage_t txMessage;
     lsmessage_t rxMessage;
@@ -325,38 +392,39 @@ int env_eraseall(void)
     txMessage.ls_length = sizeof(lseeprom_t);
     txMessage.info.ls_eeprom.le_subcmd = LSEEPROM_ERASEALL;
     txMessage.info.ls_eeprom.le_data[0] = 0;
-    send_command(&txMessage);
-    recv_response(&rxMessage);
+    send_command(device, &txMessage);
+    recv_response(device, &rxMessage);
 
     return 0;
 }
 
-int reset_to_dfu(void)
+int Playback::reset_to_dfu(void)
 {
     lsmessage_t txMessage;
     lsmessage_t rxMessage;
 
     txMessage.ls_command = LSCMD_DFU;
     txMessage.ls_length = 0;
-    send_command(&txMessage);
-    recv_response(&rxMessage);
+    send_command(device, &txMessage);
+    recv_response(device, &rxMessage);
 
     return 0;
 }
 
 
-static void play_events(LSScript_t *script,LSSchedule *sched)
+// Private
+void Playback::play_events(LSSchedule *sched, double start_cue, double end_cue)
 {
     int idx = 0;
     int events = sched->size();
     double start_time;
 
-    start_time = current_time(script) + start_offset;
+    start_time = current_time() + start_offset;
 
-    if (script->lss_startcue != 0.0) {
+    if (start_cue != 0.0) {
         while (idx < events) {
             schedcmd_t *cmd = sched->getAt(idx);
-            if (cmd->time < script->lss_startcue) {
+            if (cmd->time < start_cue) {
                 idx++;
             } else {
                 break;
@@ -371,7 +439,7 @@ static void play_events(LSScript_t *script,LSSchedule *sched)
 
         // Figure out the difference between the time stamp
         // at the start and now.
-        now = current_time(script) - start_time + script->lss_startcue;
+        now = current_time() - start_time + start_cue;
 
         // If the current time is past the script command's time,
         // do the command.
@@ -383,27 +451,27 @@ static void play_events(LSScript_t *script,LSSchedule *sched)
             if (cmd->direction) anim |= 0x8000;
             
             sched->printSchedEntry(cmd);
-            if (cmd->comment == NULL) {
-                send_animate(cmd->stripmask, anim, cmd->speed, cmd->option, cmd->palette);
+            if (cmd->comment.c_str()[0] == '\0') {
+                send_animate(device, cmd->stripmask, anim, cmd->speed, cmd->option, cmd->palette);
             }
 
             idx++;
         }
 
-        if ((script->lss_endcue != 0) && (now > (script->lss_endcue))) {
+        if ((end_cue != 0) && (now > (end_cue))) {
             break;
         }
     }
 
 }
-#if 1
 
-static int musicpos;
-static int musicend;
-static LSScript_t *curscript;
-static LSSchedule *cursched;
+void Playback::set_time_callback(void (*callback)(void *arg,double), void *arg)
+{
+    time_callback = callback;
+    time_callback_arg = arg;
+}
 
-int player_callback(double now)
+int Playback::player_callback(double now)
 {
     // If the current time is past the script command's time,
     // do the command.
@@ -415,6 +483,11 @@ int player_callback(double now)
 
     if (play_please_stop) {
         return 0;
+    }
+
+    if ((now - last_offset) >= 0.1) {
+        last_offset = now;
+        if (time_callback) (*time_callback)(time_callback_arg, now);
     }
 
     schedcmd_t *cmd = (schedcmd_t *) cursched->getAt(musicpos);
@@ -431,8 +504,8 @@ int player_callback(double now)
         if (cmd->direction) anim |= 0x8000;
             
         cursched->printSchedEntry(cmd);
-        if (cmd->comment == NULL) {
-            send_animate(cmd->stripmask, anim, cmd->speed, cmd->option, cmd->palette);
+        if (cmd->comment.c_str()[0] == '\0') {
+            send_animate(device, cmd->stripmask, anim, cmd->speed, cmd->option, cmd->palette);
         }
 
         musicpos++;
@@ -443,22 +516,19 @@ int player_callback(double now)
 
 }
 
-extern int playMusicFile(const char *name, int (*callback)(double),double start_cue);
-
-static void play_music(LSScript_t *script,LSSchedule *sched)
+// Private
+void Playback::play_music(LSSchedule *sched, double start_cue, double end_cue, std::string music)
 {
-    curscript = script;
-    cursched = sched;
-    
     musicpos = 0;
     musicend = sched->size();
 
+    last_offset = 0;
     // Seek in script to cue point
 
-    if (script->lss_startcue != 0.0) {
+    if (start_cue != 0.0) {
         while (musicpos != musicend) {
             schedcmd_t *cmd = sched->getAt(musicpos);
-            if (cmd->time > script->lss_startcue) break;
+            if (cmd->time > start_cue) break;
             musicpos++;
         }
 
@@ -468,20 +538,25 @@ static void play_music(LSScript_t *script,LSSchedule *sched)
         }
     }
 
-    char *path = realpath(script->lss_music.c_str(), NULL);
-    printf("Playing: %s\n",path);
-    playMusicFile(path, player_callback, script->lss_startcue);
+    char *path = realpath(music.c_str(), NULL);
+    if (path == NULL) {
+        return;
+    }
+//    printf("Playing: %s\n",path);
+    playMusicFile(path, this, start_cue);
+    free(path);
 }
-#endif
 
-static void play_idle(void)
+
+// private
+void Playback::play_idle(void)
 {
     int v;
     uint32_t mask[MAXVSTRIPS/32];
 
     if (curscript->lss_idlestrips) {
         try {
-            cursched->stripMask(NULL,curscript->lss_idlestrips,mask);
+            cursched->stripMask(NULL,curscript->lss_idlestrips.get(),mask);
         } catch (int e) {
             return;
         }
@@ -489,7 +564,7 @@ static void play_idle(void)
 
     if (curscript->lss_idleanimation != "") {
         if (curscript->animTable->findSym(curscript->lss_idleanimation,v)) {
-            send_animate(mask, v, 500, 0, 0);
+            send_animate(device, mask, v, 500, 0, 0);
         } else {
             printf("Warning: idle animation '%s' is not valid\n",curscript->lss_idleanimation.c_str());
         }
@@ -497,7 +572,8 @@ static void play_idle(void)
 }
 
 
-static void all_off(void)
+// private
+void Playback::all_off(void)
 {
     uint32_t mask[MAXVSTRIPS/32];
 
@@ -506,12 +582,13 @@ static void all_off(void)
     
     // Send "OFF" to everyone, then wait 200ms.
     if (offAnim) {
-        send_animate(mask, offAnim, 500, 0, 0);
+        send_animate(device,  mask, offAnim, 500, 0, 0);
         msleep(200);
     } 
 }
 
-int play_opentcpdevice(char *hostaddr)
+// private
+int Playback::play_opentcpdevice(char *hostaddr)
 {
     struct sockaddr_in sin;
     struct sockaddr *saddr;
@@ -534,25 +611,12 @@ int play_opentcpdevice(char *hostaddr)
     }
 
 
-//    inaddr = inet_addr((const char *) hostaddr);
-//    if (inaddr == INADDR_NONE) {
-//        printf("Incorrectly formed IP address: %s\n",hostaddr);
-//        return -1;
-//    }
-
-//    hp = gethostbyname(host);
-//    if (!hp) {
-//        printf("lightscript: couldn't resolve host %s\n",host);
-//        exit(1);
-//    }
-
     /* build the server's Internet address */
     bzero((char *) &(sin), sizeof(sin));
     sin.sin_family = hp->h_addrtype;
     bcopy((char *)hp->h_addr, 
           (char *)&sin.sin_addr.s_addr, hp->h_length);
     sin.sin_family = AF_INET;
-//    sin.sin_addr.s_addr = inaddr;
     sin.sin_port = htons(nport);
     saddr = (struct sockaddr *) &sin;
     ssize = sizeof(sin);
@@ -581,7 +645,8 @@ int play_opentcpdevice(char *hostaddr)
 
 }
 
-int play_openusbdevice(char *devname)
+// private
+int Playback::play_openusbdevice(char *devname)
 {
     if (devname != NULL) {
         device = open(devname,O_RDWR);
@@ -597,7 +662,7 @@ int play_openusbdevice(char *devname)
     return 0;
 }
 
-int play_opendevice(char *devname)
+int Playback::play_opendevice(char *devname)
 {
     if ((inet_addr(devname) != INADDR_NONE) ||
         (strstr(devname,".lan") != NULL)) {
@@ -608,7 +673,7 @@ int play_opendevice(char *devname)
 
 }
 
-void play_closedevice(void)
+void Playback::play_closedevice(void)
 {
     if (device > 0) {
         close(device);
@@ -616,45 +681,55 @@ void play_closedevice(void)
     }
 }
 
-void play_initdevice(LSScript_t *script)
+void Playback::play_initdevice()
 {
     check_version();
-    upload_config(script);
-}
-
-
-
-void play_script(int how)
-{
+    upload_config(curscript);
     play_please_stop = false;
 
     all_off();
     play_idle();
+}
 
-    printf("\n\n");
-    printf("Press RETURN to start playback\n"); getchar();
 
+
+int Playback::play_start(int how)
+{
+    play_with_music = how;
+
+    if (playbackThread.joinable()) {
+        printf("ERROR: playback is running\n");
+        return -1;
+    }
+    playbackThread = std::thread(&Playback::run, this);
+    return 0;
+}
+
+void Playback::play_wait(void)
+{
+    if (playbackThread.joinable()) {
+        playbackThread.join();
+    }
+}
+
+void Playback::run(void)
+{    
     time(&epoch);
     
-    if (how == 0) {
-        play_events(curscript, cursched);
+    if (play_with_music == 0) {
+        play_events(cursched, curscript->lss_startcue, curscript->lss_endcue);
     } else {
-        play_music(curscript, cursched);
+        play_music(cursched, curscript->lss_startcue, curscript->lss_endcue, curscript->lss_music);
     }
 
     msleep(500);
 
     all_off();
     play_idle();
-
-//    msleep(1000);
     
-    if (device != -1) {
-        close(device);
-    }
 }
 
-void play_init(LSScript_t *script, LSSchedule *sched)
+void Playback::play_init(LSScript_t *script, LSSchedule *sched)
 {
     std::string offStr = "OFF";
     int v;
@@ -671,10 +746,8 @@ void play_init(LSScript_t *script, LSSchedule *sched)
 }
 
 
-void play_interrupt(void)
+void Playback::play_interrupt(void)
 {
-    printf("[stopping]\n");
     play_please_stop = true;
 }
-
 

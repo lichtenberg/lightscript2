@@ -47,6 +47,7 @@ int debug = 0;
 LSTokenStream tokenStream;
 static LSScript_t *script = NULL;
 static LSSchedule *schedule;
+static Playback playback;
 
 static char *findpicolight(void)
 {
@@ -182,8 +183,8 @@ static void script_showvstrips(LSScript_t *script)
 
 static void script_stats(LSScript_t *script)
 {
-    const char *music = script->lss_music.c_str() ? script->lss_music.c_str() : "not_set";
-    const char *idleanim = script->lss_idleanimation.c_str() ? script->lss_idleanimation.c_str() : "not_set";
+    const char *music = (script->lss_music.c_str()[0] != '\0') ? script->lss_music.c_str() : "not_set";
+    const char *idleanim = (script->lss_idleanimation.c_str()[0] != '\0')  ? script->lss_idleanimation.c_str() : "not_set";
     
     printf("Number of commands:  %ld\n",script->lss_commands.size());
     printf("Music file:          %s\n",music);
@@ -264,8 +265,8 @@ static bool read_and_parse(char *panelconfigfilename, char *configfilename, char
     }
 
     // Generate our schedule if we get this far.
-    schedule = new LSSchedule(script);
-    if (schedule->generate() == false) {
+    schedule = new LSSchedule();
+    if (schedule->generate(*script) == false) {
         printf("Errors found while generating the schedule\n");
         return false;
     }
@@ -350,7 +351,7 @@ static void usage(void)
 
 void inthandler(int x)
 {
-    play_interrupt();
+    playback.play_interrupt();
 }
 
 
@@ -434,10 +435,10 @@ int main(int argc,char *argv[])
     // Handle commands that don't need the scripts
     switch (cmdnum) {
         case CMD_SETENV:
-            play_opendevice(picolight);
-            check_version();
+            playback.play_opendevice(picolight);
+            playback.check_version();
             if (argc > 2) {
-                if (env_setenv(argv[1],argv[2]) == 0) {
+                if (playback.env_setenv(argv[1],argv[2]) == 0) {
                     printf("done!\n");
                 } else {
                     printf("error occurred\n");
@@ -445,42 +446,42 @@ int main(int argc,char *argv[])
             } else {
                 printf("usage:  lightscript2 setenv <name> <value>\n");
             }
-            play_closedevice();
+            playback.play_closedevice();
             break;
         case CMD_GETENV:
-            play_opendevice(picolight);
-            check_version();
+            playback.play_opendevice(picolight);
+            playback.check_version();
             if (argc > 1) {
                 char val[256];
-                if (env_getenv(argv[1],val,sizeof(val)) == 0) {
+                if (playback.env_getenv(argv[1],val,sizeof(val)) == 0) {
                     printf("%s = %s\n",argv[1],val);
                 }
             } else {
                 printf("usage:  lightscript2 getenv <name>\n");
             }
-            play_closedevice();
+            playback.play_closedevice();
             break;
         case CMD_LISTENV:
-            play_opendevice(picolight);
-            check_version();
+            playback.play_opendevice(picolight);
+            playback.check_version();
             if (1) {
                 char val[256];
-                env_listenv(val,sizeof(val));
+                playback.env_listenv(val,sizeof(val));
                 printf("Variables defined: %s\n",val);
             }
-            play_closedevice();
+            playback.play_closedevice();
             break;
         case CMD_ERASEALL:
-            play_opendevice(picolight);
-            check_version();
-            env_eraseall();
-            play_closedevice();
+            playback.play_opendevice(picolight);
+            playback.check_version();
+            playback.env_eraseall();
+            playback.play_closedevice();
             break;
         case CMD_DFU:
-            play_opendevice(picolight);
-            check_version();
-            reset_to_dfu();
-            play_closedevice();
+            playback.play_opendevice(picolight);
+            playback.check_version();
+            playback.reset_to_dfu();
+            playback.play_closedevice();
             break;
        default:
             early_exit = 0;
@@ -524,22 +525,27 @@ int main(int argc,char *argv[])
     sigaction(SIGINT, &sigint_action, NULL);
 
     if ((cmdnum == CMD_MPLAY) || (cmdnum == CMD_PLAY)) {
-        play_opendevice(picolight);
-        play_init(script, schedule);
-        play_initdevice(script);
-    }
+        playback.play_opendevice(picolight);
+        playback.play_init(script, schedule);
+        playback.play_initdevice();
+        printf("\n\n");
+        printf("Press RETURN to start playback\n"); getchar();
 
-    switch (cmdnum) {
-        case CMD_PLAY:
-            play_script(0);
-            break;
-        case CMD_MPLAY:
-            play_script(1);
-            break;
-        default:
-            break;
-    }
+        switch (cmdnum) {
+            case CMD_PLAY:
+                playback.play_start(0);
+                break;
+            case CMD_MPLAY:
+                playback.play_start(1);
+                break;
+            default:
+                break;
+        }
+
+        playback.play_wait();
+        playback.play_closedevice();
     
+    }
 
     return 0;
 }
