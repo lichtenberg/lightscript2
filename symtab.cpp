@@ -8,19 +8,18 @@
 
 LSSymTab::LSSymTab()
 {
-
-}
-
-LSSymTab::LSSymTab(const char *name)
-{
-    LSSymTab();
-    tableName = name;
+    tableName = "not_set";
 }
 
 
 LSSymTab::~LSSymTab()
 {
 
+}
+
+void LSSymTab::reset(void)
+{
+    table.clear();
 }
 
 bool LSSymTab::updateSym(std::string name, int value)
@@ -62,11 +61,9 @@ bool LSSymTab::addSym(std::string name, int value)
     return true;
 }
 
-bool LSSymTab::findVal(int value, std::string &name)
+bool LSSymTab::findVal(int value, std::string &name) const
 {
-    std::vector<LSSymbol_t>::iterator i;
-    
-    for (i = table.begin(); i != table.end(); i++) {
+    for (auto i = table.begin(); i != table.end(); i++) {
         if (i->symValue == value) {
             name = i->symName;
             return true;
@@ -75,11 +72,9 @@ bool LSSymTab::findVal(int value, std::string &name)
     return false;
 }
 
-bool LSSymTab::findSym(std::string name, int& value)
+bool LSSymTab::findSym(std::string name, int& value) const
 {
-    std::vector<LSSymbol_t>::iterator i;
-    
-    for (i = table.begin(); i != table.end(); i++) {
+    for (auto i = table.begin(); i != table.end(); i++) {
         if (i->symName == name) {
             value = i->symValue;
             return true;
@@ -103,6 +98,11 @@ LSStripListTab::~LSStripListTab()
 
 }
 
+void LSStripListTab::reset(void)
+{
+    table.clear();
+}
+
 
 bool LSStripListTab::addStripList(std::string name, idlist_t *idlist)
 {
@@ -123,11 +123,11 @@ bool LSStripListTab::addStripList(std::string name, idlist_t *idlist)
     return true;
 }
 
-bool LSStripListTab::findStripList(std::string name, idlist_t * &value)
+bool LSStripListTab::findStripList(std::string name, idlist_t * &value) const
 {
-    std::vector<LSStripList_t>::iterator i;
+//    std::vector<LSStripList_t>::iterator i;
     
-    for (i = table.begin(); i != table.end(); i++) {
+    for (auto i = table.begin(); i != table.end(); i++) {
         if (i->listName == name) {
             value = i->listList;
             return true;
@@ -151,6 +151,10 @@ LSMacroTab::~LSMacroTab()
 
 }
 
+void LSMacroTab::reset(void)
+{
+    table.clear();
+}
 
 bool LSMacroTab::addMacro(std::string name, idlist_t *idlist, cmdlist_t *commands)
 {
@@ -173,11 +177,9 @@ bool LSMacroTab::addMacro(std::string name, idlist_t *idlist, cmdlist_t *command
     return true;
 }
 
-bool LSMacroTab::findMacro(std::string name, idlist_t * &args, cmdlist_t * &commands)
+bool LSMacroTab::findMacro(std::string name, idlist_t * &args, cmdlist_t * &commands) const
 {
-    std::vector<LSMacro_t>::iterator i;
-    
-    for (i = table.begin(); i != table.end(); i++) {
+    for (auto i = table.begin(); i != table.end(); i++) {
         if (i->name == name) {
             args = i->args;
             commands = i->commands;

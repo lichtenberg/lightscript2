@@ -50,12 +50,12 @@ private:
     int findStrip(std::string name);
 
     schedule_t schedule;
-    const LSScript_t* script = nullptr;
+    const LSScript* script = nullptr;
 
     bool generate1(void);
 
 public:
-    bool generate(const LSScript_t& theScript);
+    bool generate(const LSScript& theScript);
     void printSched(void);
     void printSchedEntry(const schedcmd_t *scmd);
     int size(void);

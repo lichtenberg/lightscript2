@@ -157,7 +157,7 @@ static int readdata(int device, uint8_t *buf, int len)
     while (len > 0) {
         res = read(device, buf, len);
         if (res <= 0) {
-            printf("Read error from PicoLight: %d\n",res);
+            lsprinterr("Read error from PicoLight: %d\n",res);
             exit(1);
         }
         buf += res;
@@ -272,7 +272,7 @@ void Playback::check_version(void)
 
 
 // private
-int Playback::upload_config(LSScript_t *script)
+int Playback::upload_config(LSScript *script)
 {
     lsmessage_t txMessage;
     lsmessage_t rxMessage;
@@ -563,7 +563,7 @@ void Playback::play_idle(void)
     }
 
     if (curscript->lss_idleanimation != "") {
-        if (curscript->animTable->findSym(curscript->lss_idleanimation,v)) {
+        if (curscript->animTable.findSym(curscript->lss_idleanimation,v)) {
             send_animate(device, mask, v, 500, 0, 0);
         } else {
             printf("Warning: idle animation '%s' is not valid\n",curscript->lss_idleanimation.c_str());
@@ -729,7 +729,7 @@ void Playback::run(void)
     
 }
 
-void Playback::play_init(LSScript_t *script, LSSchedule *sched)
+void Playback::play_init(LSScript *script, LSSchedule *sched)
 {
     std::string offStr = "OFF";
     int v;
@@ -738,7 +738,7 @@ void Playback::play_init(LSScript_t *script, LSSchedule *sched)
     cursched = sched;
 
     // Send "OFF" to everyone, then wait 200ms.
-    if (script->animTable->findSym(offStr,v)) {
+    if (script->animTable.findSym(offStr,v)) {
         offAnim = v;
     }
 

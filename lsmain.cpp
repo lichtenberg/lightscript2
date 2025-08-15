@@ -45,9 +45,35 @@ char *inpfilename = (char *) "input";
 int debug = 0;
 
 LSTokenStream tokenStream;
-static LSScript_t *script = NULL;
+static LSScript *script = NULL;
 static LSSchedule *schedule;
 static Playback playback;
+
+extern "C" {
+int lsprintf(const char * str, ...)
+{
+    static char textbuf[512];
+    int ret;
+    va_list args;
+    va_start(args, str);
+    ret = vsnprintf(textbuf, sizeof(textbuf)-1, str, args);
+    va_end(args);
+    printf("%s\n",textbuf);
+    return ret;
+}
+int lsprinterr(const char * str, ...)
+{
+    static char textbuf[512];
+    int ret;
+    va_list args;
+    va_start(args, str);
+    ret = vsnprintf(textbuf, sizeof(textbuf)-1, str, args);
+    va_end(args);
+    printf("%s\n",textbuf);
+    return ret;
+}
+};
+
 
 static char *findpicolight(void)
 {
@@ -128,7 +154,7 @@ static bool tokenize_file(char *filename)
     return true;
 }
 
-static void script_showpstrips(LSScript_t *script)
+static void script_showpstrips(LSScript *script)
 {
     int idx;
     char chName;
@@ -155,7 +181,7 @@ static void script_showpstrips(LSScript_t *script)
 }
 
 static const char *stripChars = "1234567890ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz";
-static void script_showvstrips(LSScript_t *script)
+static void script_showvstrips(LSScript *script)
 {
     int idx;
     int ss;        
@@ -181,7 +207,7 @@ static void script_showvstrips(LSScript_t *script)
 }
 
 
-static void script_stats(LSScript_t *script)
+static void script_stats(LSScript *script)
 {
     const char *music = (script->lss_music.c_str()[0] != '\0') ? script->lss_music.c_str() : "not_set";
     const char *idleanim = (script->lss_idleanimation.c_str()[0] != '\0')  ? script->lss_idleanimation.c_str() : "not_set";
@@ -189,11 +215,11 @@ static void script_stats(LSScript_t *script)
     printf("Number of commands:  %ld\n",script->lss_commands.size());
     printf("Music file:          %s\n",music);
     printf("Idle animation:      %s\n",idleanim);
-    printf("Symbol table size:   %d\n",script->symbolTable->size());
-    printf("Color table size:    %d\n",script->colorTable->size());
-    printf("Anim table size:     %d\n",script->animTable->size());
-    printf("StripList tab size:  %d\n",script->stripListTable->size());
-    printf("Macro list size:     %d\n",script->macroTable->size());
+    printf("Symbol table size:   %d\n",script->symbolTable.size());
+    printf("Color table size:    %d\n",script->colorTable.size());
+    printf("Anim table size:     %d\n",script->animTable.size());
+    printf("StripList tab size:  %d\n",script->stripListTable.size());
+    printf("Macro list size:     %d\n",script->macroTable.size());
     printf("\n");
 
     script_showpstrips(script);
@@ -203,19 +229,18 @@ static void script_stats(LSScript_t *script)
 }
 
 
-static LSScript_t *do_parse(void)
+static LSScript *do_parse(void)
 {
-    LSScript_t *script = new LSScript_t;
+    LSScript *script = new LSScript;
 
-    memset(script, 0, sizeof(LSScript_t));
     
     LSParser *parser = new LSParser(&tokenStream, script);
 
-    script->symbolTable = new LSSymTab("symbol");
-    script->animTable = new LSSymTab("animations");
-    script->colorTable = new LSSymTab("colors");
-    script->stripListTable = new LSStripListTab;
-    script->macroTable = new LSMacroTab;
+//    script->symbolTable = new LSSymTab("symbol");
+//    script->animTable = new LSSymTab("animations");
+//    script->colorTable = new LSSymTab("colors");
+    // script->stripListTable = new LSStripListTab;
+//    script->macroTable = new LSMacroTab;
 
     // Initialize the index values from the pstrip and vstrip tables,
     // not sure if we really need it.

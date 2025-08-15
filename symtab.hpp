@@ -12,7 +12,6 @@ typedef struct LSSymbol_s {
 class LSSymTab {
 public:
     LSSymTab();
-    LSSymTab(const char *name);
     ~LSSymTab();
 
 private:
@@ -21,10 +20,12 @@ private:
 
 public:
     bool addSym(std::string name, int value);
-    bool findSym(std::string name, int& value);
-    bool findVal(int value, std::string &name);
+    bool findSym(std::string name, int& value) const;
+    bool findVal(int value, std::string &name) const;
     bool updateSym(std::string, int value);
     inline int size() { return table.size(); }
+    inline void setName(std::string name) { tableName = name; }
+    void reset(void);
 };
 
 
@@ -43,8 +44,9 @@ private:
 
 public:
     bool addStripList(std::string name, idlist_t *value);
-    bool findStripList(std::string name, idlist_t * &value);
+    bool findStripList(std::string name, idlist_t * &value) const;
     inline int size() { return table.size(); }
+    void reset(void);
 };
 
 
@@ -58,8 +60,9 @@ private:
 
 public:
     bool addMacro(std::string name, idlist_t *args, cmdlist_t *commands);
-    bool findMacro(std::string name, idlist_t * &args, cmdlist_t * &commands);
+    bool findMacro(std::string name, idlist_t * &args, cmdlist_t * &commands) const;
     inline int size() { return table.size(); }
+    void reset(void);
 };
 
 

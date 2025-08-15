@@ -197,13 +197,16 @@ LSToken& LSTokenStream::cur() {
 
 void LSTokenStream::error(const char *str, ...)
 {
+    char textbuf[512];
+    char *p = textbuf;
+    
     va_list ap;
 
-    printf("[%s:Line %d] ",currentFile(),currentLine());
+    p += snprintf(textbuf,sizeof(textbuf)-1,"[%s:Line %d] ",currentFile(),currentLine());
     va_start(ap,str);
-    vprintf(str,ap);
+    vsnprintf(p, sizeof(textbuf) - (p - textbuf + 1), str, ap);
     va_end(ap);
-    printf("\n");
+    lsprinterr("%s",textbuf);
     throw -1;
 }
 

@@ -81,10 +81,6 @@ typedef struct LSMacro_s {
 } LSMacro_t;
 
 #include "symtab.hpp"
-//class LSSymTab;
-//class LSMacroTab;
-//class LSStripListTab;
-
 
 
 typedef struct PStrip_s {
@@ -101,7 +97,8 @@ typedef struct VStrip_s {
 } VStrip_t;
 
 
-typedef struct LSScript_s {
+class LSScript {
+public:
     // Global stuff about the script
     std::string lss_idleanimation;
     std::unique_ptr<idlist_t> lss_idlestrips;
@@ -111,32 +108,51 @@ typedef struct LSScript_s {
     cmdlist_t lss_commands;
 
     // Start/Stop cues
-    double lss_startcue;
-    double lss_endcue;
+    double lss_startcue = 0;
+    double lss_endcue = 0;
 
     // Symbol tables
-    LSSymTab *symbolTable;
-    LSSymTab *animTable;
-    LSSymTab *colorTable;
-    LSStripListTab *stripListTable;
-    LSMacroTab *macroTable;
+    LSSymTab symbolTable;
+    LSSymTab animTable;
+    LSSymTab colorTable;
+    LSStripListTab stripListTable;
+    LSMacroTab macroTable;
 
     // No need for symbol tables for these because they are fixed in size by the firmware.
     // Physical Strips.
-    PStrip_t physicalStrips[MAXPSTRIPS];
+    PStrip_t physicalStrips[MAXPSTRIPS] = {};
     // Virtual Strips
-    int virtualStripCount;
-    VStrip_t virtualStrips[MAXVSTRIPS];
-
-    void init() {
-        symbolTable = new LSSymTab("symbol");
-        animTable = new LSSymTab("animations");
-        colorTable = new LSSymTab("colors");
-        stripListTable = new LSStripListTab;
-        macroTable = new LSMacroTab;
-
-    }
+    int virtualStripCount = 0;
+    VStrip_t virtualStrips[MAXVSTRIPS] = {};
 
     void reset() {
+        symbolTable.reset();
+        animTable.reset();
+        colorTable.reset();
+        stripListTable.reset();
+        macroTable.reset();
+        for (auto i = 0; i < MAXPSTRIPS; i++) {
+            physicalStrips[i].name.clear();
+            physicalStrips[i].idx = 0;
+            physicalStrips[i].info = 0;
+        }
+        for (auto i = 0; i < MAXVSTRIPS; i++) {
+            virtualStrips[i].name.clear();
+            virtualStrips[i].idx = 0;
+            virtualStrips[i].substripCount = 0;
+            memset(virtualStrips[i].substrips,0,sizeof(virtualStrips[i].substrips));
+        }
+        lss_startcue = 0;
+        lss_endcue = 0;
+        virtualStripCount = 0;
+        if (lss_idlestrips.get() != nullptr) lss_idlestrips.get()->clear();
+        lss_music.clear();
+        lss_idleanimation.clear();
+        lss_commands.clear();
     }
-} LSScript_t;
+};
+
+extern "C" {
+    int lsprintf(const char * str, ...);
+    int lsprinterr(const char * str,...);
+};

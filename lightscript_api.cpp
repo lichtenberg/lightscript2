@@ -22,32 +22,26 @@ static void (*g_status_cb)(int iserror, const char*) = nullptr;
 
 // ---- Single context (simple for now; you can make this per-session later) ----
 struct LSContext {
-    std::unique_ptr<LSTokenStream> ts;
-    std::unique_ptr<LSParser>      parser;
-    std::unique_ptr<LSSchedule>    sched;
-    std::unique_ptr<LSScript_t>    script;
-    std::unique_ptr<Playback>      playback;
+    LSTokenStream ts;
+    LSParser parser;
+    LSSchedule sched;
+    LSScript script;
+    Playback playback;
 
     // device / playback
-    std::string deviceName;
+    std::string deviceName = "";
 
     // error reporting
     int         last_error_line = 0;
-    std::string last_error_msg;
+    std::string last_error_msg = "";
 
-    LSContext()
-      : ts(std::make_unique<LSTokenStream>()),
-        parser(std::make_unique<LSParser>()),
-        sched(std::make_unique<LSSchedule>()),
-        script(std::make_unique<LSScript_t>()),
-        playback(std::make_unique<Playback>()) {
-        script->init();
+    LSContext() {
     }
 
     void resetAll() {
-        ts->reset();
-        sched->reset();
-        script->reset();
+        ts.reset();
+        sched.reset();
+        script.reset();
         last_error_line = 0;
         last_error_msg.clear();
     }
@@ -61,13 +55,34 @@ struct LSContext {
 
 static LSContext* g = nullptr;
 
-// ---- tiny helpers ----
-static void status_info(const char* s) {
-    if (g_status_cb) g_status_cb(0, s ? s : "");
-}
 
 // If you have your own error facility inside LSParser/LSTokenStream,
 // consider wiring it so they call back into g->report_error(...).
+extern "C" {
+int lsprintf(const char * str, ...)
+{
+    static char textbuf[512];
+    int ret;
+    va_list args;
+    va_start(args, str);
+    ret = vsnprintf(textbuf, sizeof(textbuf)-1, str, args);
+    va_end(args);
+    if (g_status_cb) g_status_cb(0,textbuf);
+    return ret;
+}
+int lsprinterr(const char * str, ...)
+{
+    static char textbuf[512];
+    int ret;
+    va_list args;
+    va_start(args, str);
+    ret = vsnprintf(textbuf, sizeof(textbuf)-1, str, args);
+    va_end(args);
+    if (g_status_cb) g_status_cb(1,textbuf);
+    return ret;
+}
+
+};
 
 extern "C" {
 
@@ -82,7 +97,7 @@ static void _timecb1(void *arg, double f)
     if (g_time_cb) (*g_time_cb)(f);
 }
 void lightscript_set_time_callback(void (*cb)(double)) {
-    g->playback->set_time_callback(_timecb1, NULL);
+    g->playback.set_time_callback(_timecb1, NULL);
     g_time_cb = cb;
 }
     
@@ -103,7 +118,7 @@ int lightscript_get_error_line(void) {
 int lightscript_reset(void) {
     if (!g) return -1;
     g->resetAll();
-    status_info("Reset.");
+    lsprintf("Reset.");
     return 0;
 }
 
@@ -114,11 +129,11 @@ int lightscript_tokenize_file(const char* filename)
 
     yyin = fopen(filename, "rb");
     if (!yyin) { g->report_error("open failed", 0); return -2; }
-\
+
     // Call the lexer and read all the tokens into the token stream.
     while ((t = (lstoktype_t) yylex())) {
         LSToken tok = LSToken(t, filename, yylineno, &yylval);
-        g->ts->add(tok);
+        g->ts.add(tok);
     }
     
     fclose(yyin);
@@ -127,19 +142,19 @@ int lightscript_tokenize_file(const char* filename)
 
 int lightscript_parse_script(void)
 {
-    g->parser->init(g->ts.get(), g->script.get());   // use your actual init
+    g->parser.init(&g->ts, &g->script);   // use your actual init
     try {
-        g->parser->parseTopLevel();
+        g->parser.parseTopLevel();
     } catch (...) {
-        g->report_error("parse exception", g->parser->currentLine());
+        g->report_error("parse exception", g->parser.currentLine());
         return -3;
     }
-    status_info("Parsed file.");
-    if (g->sched->generate(*g->script) == false) {
+    lsprintf("Parsed file.");
+    if (g->sched.generate(g->script) == false) {
         g->report_error("Could not generate schedule",0);
         return -4;
     }
-    status_info("Schedule generated.");
+    lsprintf("Schedule generated.");
     return 0;
 }
 
@@ -153,59 +168,59 @@ int lightscript_tokenize_string(const char* scriptText)
 
     while ((t = (lstoktype_t) yylex())) {
         LSToken tok = LSToken(t, "script", yylineno, &yylval);
-        g->ts->add(tok);
+        g->ts.add(tok);
     }
 
     yy_delete_buffer(buf);
 
-    status_info("Parsed string.");
+    lsprintf("Parsed string.");
     return 0;
 }
 
 int lightscript_connect(void) {
     if (!g) return -1;
-    if (g->playback->play_opendevice((char *) g->deviceName.c_str()) < 0) {
+    if (g->playback.play_opendevice((char *) g->deviceName.c_str()) < 0) {
         g->report_error("connect failed", 0);
         return -2;
     }
-    status_info("Connected.");
+    lsprintf("Connected.");
     return 0;
 }
 
 int lightscript_disconnect(void) {
     if (!g) return 0;
-    g->playback->play_closedevice();
-    status_info("Disconnected.");
+    g->playback.play_closedevice();
+    lsprintf("Disconnected.");
     return 0;
 }
 
 int lightscript_playback_start(int with_music) {
     if (!g) return -1;
 
-    g->playback->play_init(g->script.get(), g->sched.get());
-    g->playback->play_initdevice();
+    g->playback.play_init(&g->script, &g->sched);
+    g->playback.play_initdevice();
 
 
-    // e.g., g->playback->load_schedule(g->sched.get());
-    if (g->playback->play_start(with_music != 0) < 0) {
+    // e.g., g->playback.load_schedule(g->sched.get());
+    if (g->playback.play_start(with_music != 0) < 0) {
         g->report_error("playback start failed", 0);
         return -3;
     }
-    status_info("Playback started.");
+    lsprintf("Playback started.");
     return 0;
 }
 
 void lightscript_playback_wait(void)
 {
     if (!g) return;
-    g->playback->play_wait();
+    g->playback.play_wait();
 }
 
 void lightscript_playback_stop(void) {
-    if (!g || !g->playback) return;
-    g->playback->play_interrupt();
-//    g->playback->play_wait();
-    status_info("Playback stopped.");
+    if (!g) return;
+    g->playback.play_interrupt();
+//    g->playback.play_wait();
+    lsprintf("Playback stopped.");
 }
 
 void lightscript_shutdown(void) {
@@ -213,7 +228,7 @@ void lightscript_shutdown(void) {
     // RAII cleans up everything
     delete g;
     g = nullptr;
-    status_info("Shutdown.");
+    lsprintf("Shutdown.");
 }
 
 } // extern "C"

@@ -18,7 +18,7 @@ public:
     void play_initdevice(void);
     int play_start(int how);
     void play_wait(void);
-    void play_init(LSScript_t *script, LSSchedule *sched);
+    void play_init(LSScript *script, LSSchedule *sched);
     void play_interrupt(void);
 
     int env_setenv(char *name, char *val);
@@ -44,7 +44,7 @@ private:
 
     int musicpos;
     int musicend;
-    LSScript_t *curscript;
+    LSScript *curscript;
     LSSchedule *cursched;
 
 public:
@@ -59,7 +59,7 @@ private:
     void play_events(LSSchedule *sched, double start_cue, double end_cue);
     void play_music(LSSchedule *sched, double start_cue, double end_cue, std::string music);
     double current_time(void);
-    int upload_config(LSScript_t *script);
+    int upload_config(LSScript *script);
     void run(void);
 
 private:

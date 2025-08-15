@@ -7,16 +7,16 @@
 class LSParser {
 public:
     LSParser();
-    LSParser(LSTokenStream *stream, LSScript_t *script);
+    LSParser(LSTokenStream *stream, LSScript *script);
     ~LSParser();
 
 private:
     LSTokenStream *tokenStream;
-    LSScript_t *script;
+    LSScript *script;
 
 public:
     int parse();
-    void init(LSTokenStream *ts, LSScript_t *ls);
+    void init(LSTokenStream *ts, LSScript *ls);
     void parseTopLevel();
     int currentLine(void);
     

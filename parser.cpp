@@ -16,14 +16,14 @@ LSParser::~LSParser()
 
 }
 
-LSParser::LSParser(LSTokenStream *stream, LSScript_t *scr)
+LSParser::LSParser(LSTokenStream *stream, LSScript *scr)
 {
     LSParser();
     tokenStream = stream;
     script = scr;
 }
 
-void LSParser::init(LSTokenStream *stream, LSScript_t *scr)
+void LSParser::init(LSTokenStream *stream, LSScript *scr)
 {
     tokenStream = stream;
     script = scr;
@@ -338,7 +338,7 @@ std::unique_ptr<LSCommand_t> LSParser::parseScriptCmd()
             switch (tokenStream->current()) {
                 case CHARTOKEN('['):
                     // strip list
-                    script->stripListTable->addStripList(id,parseIDList());
+                    script->stripListTable.addStripList(id,parseIDList());
                     break;
                 default:
                     // Single strip number (not allowed anymore)
@@ -350,13 +350,13 @@ std::unique_ptr<LSCommand_t> LSParser::parseScriptCmd()
             id = tokenStream->matchIdent();
             tokenStream->match(tAS);
             v = tokenStream->matchInt();
-            script->symbolTable->addSym(id,v);
+            script->symbolTable.addSym(id,v);
             break;
         case tDEFANIM:
             id = tokenStream->matchIdent();
             tokenStream->match(tAS);
             v = tokenStream->matchInt();
-            script->animTable->addSym(id,v);
+            script->animTable.addSym(id,v);
             break;
         case tDEFCOLOR:
         case tDEFPALETTE:
@@ -364,14 +364,14 @@ std::unique_ptr<LSCommand_t> LSParser::parseScriptCmd()
             tokenStream->match(tAS);
             v = tokenStream->matchInt();
             if (tt == tDEFCOLOR) v |= COLORFLG;
-            script->colorTable->addSym(id,v);
+            script->colorTable.addSym(id,v);
             break;
         case tDEFMACRO:
             id = tokenStream->matchIdent();
             idlist_t *idlist;
             cmdlist_t *cmdlist;
             parseMacroBody(idlist,cmdlist);
-            script->macroTable->addMacro(id, idlist, cmdlist);
+            script->macroTable.addMacro(id, idlist, cmdlist);
             break;
 
         case tPHYSICAL:
@@ -578,10 +578,6 @@ unsigned int LSParser::parseOneSubstrip(void)
 
     unsigned int encodedSubstrip =
         ENCODESUBSTRIP(PSTRIP_CHAN(pstrip->info), subStart, subCount, subFlags);
-
-//    printf("SUBSTRIP: %08X (%s:%d:%d)\n",
-//           encodedSubstrip,
-//           pstrip->name.c_str(), subStart, subCount);
 
     return encodedSubstrip;
 

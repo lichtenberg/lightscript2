@@ -1,6 +1,8 @@
+.DS_Store
+ls_lexer.h
 *.yy.c
 *.o
 *.ls2
 *.mp3
 lightscript
-
+apitest

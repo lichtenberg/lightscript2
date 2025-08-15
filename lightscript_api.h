@@ -66,6 +66,13 @@ void lightscript_playback_wait(void);
 //
 void lightscript_shutdown(void);
 
+    //
+    // Logging
+    //
+    int lsprintf(const char * str, ...);
+    int lsprinterr(const char * str,...);
+    
+
 #ifdef __cplusplus
 };
 #endif

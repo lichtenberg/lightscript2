@@ -7,7 +7,8 @@ TESTOBJS += lightscript_api.o
 
 #CFLAGS = -fsanitize=address -O1 -Wall -Werror -target x86_64-apple-macos10.13 
 CFLAGS =  -g -Wall -Werror
-# -target x86_64-apple-macos10.13 
+#CFLAGS += -O1 -fsanitize=address -fno-omit-frame-pointer
+#CFLAGS += -target x86_64-apple-macos10.13 
 
 
 %.o : %.c

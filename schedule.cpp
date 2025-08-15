@@ -67,9 +67,9 @@ void LSSchedule::stripVec1(LSCommand_t *c, stripvec_t *vec, idlist_t *list)
 
     for (i = list->begin();  i < list->end(); i++) {
 
-        if (script->stripListTable->findStripList(*i, sublist)) {
+        if (script->stripListTable.findStripList(*i, sublist)) {
             if (nestLevel > 8) {
-                printf("[Line %d]: Strip lists nested too deep, are you putting a list in itself?\n", c->lsc_line);
+                lsprinterr("[Line %d]: Strip lists nested too deep, are you putting a list in itself?", c->lsc_line);
             } else {
                 nestLevel++;
                 stripVec1(c, vec,sublist);
@@ -78,7 +78,7 @@ void LSSchedule::stripVec1(LSCommand_t *c, stripvec_t *vec, idlist_t *list)
         } else if ( (v = findStrip(*i)) >= 0) {
             vec->push_back(v);
         } else {
-            printf("[Line %d]: Could not find strip name: '%s'\n",c->lsc_line, i->c_str());
+            lsprinterr("[Line %d]: Could not find strip name: '%s'",c->lsc_line, i->c_str());
             throw -1;
         }
     }
@@ -111,16 +111,16 @@ void LSSchedule::stripMask(LSCommand_t *c, idlist_t *list,uint32_t *mask)
 
     for (i = list->begin();  i < list->end(); i++) {
 
-        if (script->stripListTable->findStripList(*i, sublist)) {
+        if (script->stripListTable.findStripList(*i, sublist)) {
             if (nestLevel > 8) {
-                printf("[Line %d]: Strip lists nested too deep, are you putting a list in itself?\n", c ? c->lsc_line : 0);
+                lsprinterr("[Line %d]: Strip lists nested too deep, are you putting a list in itself?", c ? c->lsc_line : 0);
             } else {
                 stripMask(c, sublist, mask);
             }
         } else if ((v = findStrip(*i)) >= 0) {
             mask[v/32] |= 1UL << (((uint32_t) v) & 31);
         } else {
-            printf("[Line %d]: Could not find strip name: '%s'\n",c ? c->lsc_line : 0, i->c_str());
+            lsprinterr("[Line %d]: Could not find strip name: '%s'",c ? c->lsc_line : 0, i->c_str());
             throw -1;
         }
     }
@@ -133,11 +133,11 @@ void LSSchedule::setAnimation(LSCommand_t *cmd, schedcmd_t& scmd)
     int v;
 
     // Fill in the animation.
-    if (script->animTable->findSym(cmd->lsc_animation, v)) {
+    if (script->animTable.findSym(cmd->lsc_animation, v)) {
         scmd.animation = v;
     }
     else {
-        printf("[Line %d]: Could not find animation '%s', is it defined in your config file?\n",
+        lsprinterr("[Line %d]: Could not find animation '%s', is it defined in your config file?",
                cmd->lsc_line,
                cmd->lsc_animation.c_str());
         // Throw exception.
@@ -148,10 +148,10 @@ void LSSchedule::setColor(LSCommand_t *cmd, schedcmd_t& scmd)
 {
     if (cmd->opt_colorIdent != "") {
         int v;
-        if (script->colorTable->findSym(cmd->opt_colorIdent, v)) {
+        if (script->colorTable.findSym(cmd->opt_colorIdent, v)) {
             scmd.palette = v;
         } else {
-            printf("[Line %d]: Color not found: '%s'\n",cmd->lsc_line,cmd->opt_colorIdent.c_str());
+            lsprinterr("[Line %d]: Color not found: '%s'",cmd->lsc_line,cmd->opt_colorIdent.c_str());
             throw -1;
         }
     } else {
@@ -238,13 +238,13 @@ void LSSchedule::insert_macro(double baseTime, LSCommand_t *c)
     cmdlist_t *commands;
     idlist_t *args;
 
-    if (script->macroTable->findMacro(c->lsc_macro, args, commands)) {
+    if (script->macroTable.findMacro(c->lsc_macro, args, commands)) {
         for (auto& up : *commands) {
             LSCommand_t* mc = up.get();
             insert(c->lsc_from, mc);
         }
     } else {
-        printf("[Line %d]: Macro not defined: '%s'\n",c->lsc_line,c->lsc_macro.c_str());
+        lsprinterr("[Line %d]: Macro not defined: '%s'",c->lsc_line,c->lsc_macro.c_str());
         throw -1;
     }
 }
@@ -282,7 +282,7 @@ bool LSSchedule::generate1(void)
     return true;
 }
 
-bool LSSchedule::generate(const LSScript_t& theScript)
+bool LSSchedule::generate(const LSScript& theScript)
 {
     bool result = true;
 
@@ -341,17 +341,15 @@ void LSSchedule::printSchedEntry(const schedcmd_t *scmd)
     fmttime(timestr,sizeof(tmpstr),scmd->time);
 
     if (!scmd->comment.empty()) {
-        printf("\n");
-        printf("Time %8s | Line %3d | %s\n",timestr,scmd->line,scmd->comment.c_str());
-        printf("\n");
+        lsprintf("Time %8s | Line %3d | %s",timestr,scmd->line,scmd->comment.c_str());
     } else {
-        if (script->animTable->findVal(scmd->animation, name)) {
+        if (script->animTable.findVal(scmd->animation, name)) {
             snprintf(animstr,sizeof(animstr),"%s",name.c_str());
         } else {
             snprintf(animstr,sizeof(animstr),"%u",scmd->animation);
         }
 
-        if (script->colorTable->findVal(scmd->palette, name)) {
+        if (script->colorTable.findVal(scmd->palette, name)) {
             snprintf(colorstr,sizeof(colorstr),"%s",name.c_str());
         } else {
             if (scmd->palette & COLORFLG) {
@@ -361,7 +359,7 @@ void LSSchedule::printSchedEntry(const schedcmd_t *scmd)
             }
         }
 
-        printf("Time %8s | Line %3d | %-15.15s %c | speed %5u | option %5u | %-14.14s %c | strips %s\n",timestr,scmd->line, animstr,
+        lsprintf("Time %8s | Line %3d | %-15.15s %c | speed %5u | option %5u | %-14.14s %c | strips %s",timestr,scmd->line, animstr,
                scmd->direction ? 'R' : 'F',
                scmd->speed, scmd->option,
                colorstr, (scmd->palette & COLORFLG ? ' ' : 'P'),
