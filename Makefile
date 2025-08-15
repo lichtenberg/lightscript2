@@ -2,11 +2,12 @@
 
 MAINOBJS = lsmain.o
 TESTOBJS = apitest.o
-OBJS = lightscript.yy.o  tokenstream.o parser.o symtab.o schedule.o musicplayer.o playback.o
+OBJS = lightscript.yy.o  tokenstream.o parser.o symtab.o schedule.o playback.o
 TESTOBJS += lightscript_api.o
 
 #CFLAGS = -fsanitize=address -O1 -Wall -Werror -target x86_64-apple-macos10.13 
-CFLAGS =  -g -Wall -Werror -target x86_64-apple-macos10.13 
+CFLAGS =  -g -Wall -Werror
+# -target x86_64-apple-macos10.13 
 
 
 %.o : %.c
@@ -50,7 +51,7 @@ schedule.o : schedule.cpp symtab.hpp schedule.hpp
 
 
 clean :
-	rm -f lightscript $(OBJS) lightscript.yy.c 
+	rm -f lightscript $(OBJS) $(MAINOBJS) $(TESTOBJS) lightscript.yy.c 
 
 zip :
 	zip ../lightscript$(shell date "+%Y%m%d") lightscript lightscript.cfg panel.cfg laser.cfg lasertest*.ls2
